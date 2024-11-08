@@ -286,7 +286,7 @@ function update_query (x:symbol, b:bool, q:query) : query
 
 // Updating a query under the valuation x:=b is the same as updating 
 // the valuation itself and leaving the query unchanged.
-lemma evaluate_is_and(q1:query, q2:query, r:valuation)
+lemma evaluate_is_conjunctive_by_and(q1:query, q2:query, r:valuation)
   ensures evaluate(q1+q2, r) == (evaluate(q1,r) && evaluate(q2,r))
 {
   var q' := q1 + q2;
@@ -317,24 +317,18 @@ lemma evalute_update_query_is_evaluate_udpate_clause(x:symbol, b:bool, r:valuati
 lemma update_clause_does_not_incl_x(x:symbol, b:bool, c:clause)
   ensures forall i :: 0 <= i < |update_clause(x,b,c)| ==> (x,b) !in update_clause(x,b,c)[i]
   ensures forall i :: 0 <= i < |update_clause(x,b,c)| ==> (x,!b) !in update_clause(x,b,c)[i]
-{
-}
+{}
 
-lemma untitled4(c:clause, r:valuation)
+lemma evalute_clause_is_check_in_r(c:clause, r:valuation)
   ensures evaluate_clause(c,r) <==> (exists i :: 0 <= i < |c| && c[i] in r.Items)
-{
-}
+{}
 
-lemma untitled2(x:symbol, b:bool, c:clause, r:valuation)
+lemma evaluate_clause_c_expansion(x:symbol, b:bool, c:clause, r:valuation)
   requires x !in r.Keys
-  // requires (x,b) !in c
-  // requires (x,!b) !in c
   ensures evaluate_clause(c,r) == evaluate_clause(c+[(x,b)],r)
-{
+{}
 
-}
-
-lemma untitled3(x:symbol, b:bool, c:clause, r:valuation)
+lemma evaluate_clause_r_expansion(x:symbol, b:bool, c:clause, r:valuation)
   requires x !in r.Keys
   requires (x,b) !in c
   requires (x,!b) !in c
@@ -343,26 +337,25 @@ lemma untitled3(x:symbol, b:bool, c:clause, r:valuation)
   assert (x,b) !in c ==> forall i :: (0 <= i < |c| ==> c[i] != (x,b));
 }
 
-lemma untitled6(c: clause, xs: set<symbol>)
+lemma if_present_in_removed_then_present_in_original(c: clause, xs: set<symbol>)
   ensures forall xb :: xb in remove_symbols_clause(c,xs) ==> xb in c
 {}
 
-lemma untitled5(x:symbol,b:bool,c:clause)
+lemma if_present_in_update_then_present_in_original(x:symbol,b:bool,c:clause)
   requires (x,b) !in c 
   ensures forall xb :: xb in update_clause(x,b,c)[0] ==> xb in c
 {
   var c' := update_clause(x,b,c)[0];
   assert c' == remove_symbols_clause(c, {x});
-  untitled6(c,{x});
+  if_present_in_removed_then_present_in_original(c,{x});
   assert forall xb :: xb in remove_symbols_clause(c, {x}) ==> xb in c;
 }
 
-lemma untitled8(c:clause, xs:set<symbol>)
+lemma if_xb_is_not_in_xs_then_in_removed(c:clause, xs:set<symbol>)
   ensures forall xb :: xb in c && xb.0 !in xs ==> xb in remove_symbols_clause(c,xs)
-{
-}
+{}
 
-lemma untitled9(x:symbol, xs:set<symbol>)
+lemma set_size_one_identity(x:symbol, xs:set<symbol>)
   requires |xs| == 1 && x in xs
   ensures xs == {x}
 {
@@ -374,39 +367,38 @@ lemma untitled9(x:symbol, xs:set<symbol>)
   }
 }
 
-lemma untitled10(x:symbol, xs:set<symbol>, y:symbol)
+lemma set_size_one_anti_identity(x:symbol, xs:set<symbol>, y:symbol)
   requires |xs| == 1 && x in xs
   ensures y !in xs ==> y != x
 {
 }
 
-lemma untitled11(c:clause, xs:set<symbol>, x:symbol)
+lemma set_size_one_clause_relation(c:clause, xs:set<symbol>, x:symbol)
   requires |xs| == 1 && x in xs
   ensures forall xb :: xb in c && xb.0 !in xs ==> xb in c && xb.0 != x
-{
-}
+{}
 
-lemma untitled13(x:symbol, xs:set<symbol>, y:symbol)
+lemma set_size_one_identity2(x:symbol, xs:set<symbol>, y:symbol)
   requires |xs| == 1 && x in xs
   ensures y in xs ==> y == x
 {
-  untitled9(x, xs);
+  set_size_one_identity(x, xs);
 }
 
-lemma untitled12(c:clause, xs:set<symbol>, x:symbol)
+lemma set_size_one_clause_relation2(c:clause, xs:set<symbol>, x:symbol)
   requires |xs| == 1 && x in xs
   ensures forall xb :: xb in c && xb.0 in xs ==> xb in c && xb.0 == x
 {
   assert forall xb :: xb in c ==> (xb.0 in xs) || (xb.0 !in xs);
-  untitled11(c, xs, x);
+  set_size_one_clause_relation(c, xs, x);
   assert forall xb :: xb in c && xb.0 in xs ==> xb in c;
 
-  untitled9(x, xs);
+  set_size_one_identity(x, xs);
   assert xs == {x};
   assert forall xb :: xb in c && xb.0 in xs ==> xb.0 == x;
 }
 
-lemma untitled7(c: clause, xs: set<symbol>, b:bool, x:symbol)
+lemma if_xb_in_c_and_xnb_nin_c(c: clause, xs: set<symbol>, b:bool, x:symbol)
   requires |xs| == 1
   requires x in xs
   requires (x,b) in c
@@ -414,20 +406,20 @@ lemma untitled7(c: clause, xs: set<symbol>, b:bool, x:symbol)
   ensures forall xb :: (xb in c) ==> (xb in remove_symbols_clause(c,xs)+[(x,b)])
 {
   var c' := remove_symbols_clause(c,xs);
-  untitled6(c,xs);
+  if_present_in_removed_then_present_in_original(c,xs);
   assert forall xb :: xb in c' ==> xb in c;
   assert forall xb :: xb in [(x,b)] ==> xb in c;
   assert forall xb :: xb in c'+[(x,b)] ==> xb in c;
 
-  untitled8(c,xs);
+  if_xb_is_not_in_xs_then_in_removed(c,xs);
   assert forall xb :: xb in c && (xb.0 !in xs) ==> xb in c';
   assert forall xb :: xb in c && (xb.0 !in xs) ==> xb in c'+[(x,b)];
 
-  untitled11(c, xs, x);
+  set_size_one_clause_relation(c, xs, x);
   assert forall xb :: xb in c && (xb.0 !in xs) ==> xb in c && (xb.0 != x) ==> xb in c'+[(x,b)];
   assert forall xb :: xb in c && (xb.0 !in xs) ==> xb in c'+[(x,b)];
 
-  untitled12(c, xs, x);
+  set_size_one_clause_relation2(c, xs, x);
   assert forall xb :: xb in c ==> (xb.1 == true || xb.1 == false);
   assert forall xb :: xb in c && (xb.0 in xs) ==> xb in c && (xb.0 == x) ==> xb == (x,b) ==> xb in c'+[(x,b)];
   assert forall xb :: xb in c && (xb.0 in xs) ==> (xb in c && (xb.0 == x) ==> xb in c'+[(x,b)]);
@@ -436,16 +428,15 @@ lemma untitled7(c: clause, xs: set<symbol>, b:bool, x:symbol)
   assert forall xb :: xb in c ==> xb in c'+[(x,b)];
 }
 
-lemma untitled(x:symbol, b:bool, c:clause, r:valuation)
+lemma if_xb_in_c_and_xnb_in_c(x:symbol, b:bool, c:clause, r:valuation)
   requires x !in r.Keys
   requires (x,b) !in c && (x,!b) in c
   ensures evaluate_clause(update_clause(x,b,c)[0], r) == evaluate_clause(c, r[x:=b])
   ensures (x !in r.Keys) && (x,b) !in c && (x,!b) in c ==> evaluate_clause(update_clause(x,b,c)[0], r) == evaluate_clause(c, r[x:=b])
   ensures evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r)
-  // ensures forall c':clause :: (x !in r.Keys) && (x,b) !in c' && (x,!b) in c' ==> evaluate_clause(update_clause(x,b,c')[0], r) == evaluate_clause(c', r[x:=b])
 {
   var c' := update_clause(x,b,c)[0];
-  untitled5(x,b,c);
+  if_present_in_update_then_present_in_original(x,b,c);
   assert forall xb :: xb in c' ==> xb in c;
   var r' := r[x:=b];
 
@@ -454,47 +445,27 @@ lemma untitled(x:symbol, b:bool, c:clause, r:valuation)
   assert x !in r.Keys;
   assert x in r'.Keys;
 
-  // assert evaluate_clause(c,r') == evaluate_clause(c',r');
-
-  untitled3(x,b,c',r);
+  evaluate_clause_r_expansion(x,b,c',r);
   assert evaluate_clause(c',r) == evaluate_clause(c',r[x:=b]);
   assert evaluate_clause(c',r) == evaluate_clause(c', r');
 
-  untitled2(x,!b,c',r);
+  evaluate_clause_c_expansion(x,!b,c',r);
   assert evaluate_clause(c',r) == evaluate_clause(c'+[(x,!b)], r);
 
-  untitled7(c, {x}, !b, x);
+  if_xb_in_c_and_xnb_nin_c(c, {x}, !b, x);
   assert forall xb :: xb in c'+[(x,!b)] ==> xb in c;
   assert forall xb :: xb in c ==> xb in c'+[(x,!b)];
   assert evaluate_clause(c',r) == evaluate_clause(c,r);
 
-  // assert evaluate_clause(c', r) ==> exists xb :: (xb in c') && (xb in r.Items);
-  // assert evaluate_clause(c', r) ==> exists xb :: (xb in c'+[(x,b)]) && (xb in r.Items);
-  // assert evaluate_clause(c', r) ==> exists xb :: (xb in c'+[(x,!b)]) && (xb in r.Items);
-  // assert evaluate_clause(c', r) ==> exists xb :: (xb in c'+[(x,!b)]) && (xb in r[x:=b].Items);
-  // assert evaluate_clause(c', r) ==> exists xb :: (xb in c'+[(x,!b)]) && (xb in r'.Items);
-  // // assert evaluate_clause(c', r) ==> exists xb :: (xb in c) && (xb in r'.Items);
-  // assert evaluate_clause(c', r) ==> evaluate_clause(c, r');
-  // // assert evaluate_clause(c', r) ==> evaluate_clause(c'+[(x,!b)], r') ==> evaluate_clause(c, r');
-
-  // assert evaluate_clause(c, r') ==> exists xb :: (xb in c) && (xb in r'.Items);
-  // assert (x,!b) !in r'.Items;
-  // assert evaluate_clause(c, r') ==> exists xb :: (xb in c'+[(x,!b)]) && (xb in r'.Items);
-  // // assert evaluate_clause(c, r') ==> evaluate_clause(c', r);
-
-  // assert evaluate_clause(c', r) <==> evaluate_clause(c, r');
   assert evaluate_clause(c', r) == evaluate_clause(c, r');
-
-  // assert forall cx:clause :: (x,b) !in cx && (x,!b) in cx ==> evaluate_clause(update_clause(x,b,cx)[0], r) == evaluate_clause(cx, r[x:=b]);
-  // assert forall cx:clause :: (x !in r.Keys) && (x,b) !in cx && (x,!b) in cx ==> evaluate_clause(update_clause(x,b,cx)[0], r) == evaluate_clause(cx, r[x:=b]);
 }
 
-lemma u1(c:clause, xs:set<symbol>)
+lemma remove_sym_pass_through_if_x_not_present(c:clause, xs:set<symbol>)
   requires forall x :: x in xs ==> x !in symbols_clause(c)
   ensures remove_symbols_clause(c, xs) == c
 {}
 
-lemma u0(x:symbol, b:bool, r:valuation, c:clause)
+lemma if_xb_nin_c_and_xnb_nin_c(x:symbol, b:bool, r:valuation, c:clause)
   requires x !in r.Keys
   requires (x,b) !in c
   requires (x,!b) !in c
@@ -502,7 +473,7 @@ lemma u0(x:symbol, b:bool, r:valuation, c:clause)
 {
   assert (x,b) !in c && (x,!b) !in c ==> x !in symbols_clause(c);
   var xs := {x};
-  u1(c, xs);
+  remove_sym_pass_through_if_x_not_present(c, xs);
   assert update_clause(x, b, c)[0] == c;
 }
 
@@ -515,20 +486,14 @@ lemma evaluate_update_query(x:symbol, b:bool, r:valuation, q:query)
   forall c | c in q
     ensures evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r)
   {
-    if (x,b) in c
-    {
+    if (x,b) in c {
       assert evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
-    }
-    else 
-    {
-      if (x,!b) in c
-      {
-        untitled(x, b, c, r);
+    } else {
+      if (x,!b) in c {
+        if_xb_in_c_and_xnb_in_c(x, b, c, r);
         assert evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
-      }
-      else
-      {
-        u0(x, b, r, c);
+      } else {
+        if_xb_nin_c_and_xnb_nin_c(x, b, r, c);
         assert evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
       }
       assert evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
