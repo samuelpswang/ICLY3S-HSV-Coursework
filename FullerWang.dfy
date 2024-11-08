@@ -20,7 +20,9 @@ ensures (forall x :: (x in symbols_clause(c)) ==> (exists b :: (x,b) in c))
 }
 
 // extracts the set of symbols from a given query
-function symbols(q:query) : set<symbol>
+function  symbols(q:query) : set<symbol>
+  ensures forall x :: x in symbols(q) <==> (exists i :: 0 <= i < |q| && x in symbols_clause(q[i]))
+  ensures forall x :: x in symbols(q) <==> (exists c :: c in q && x in symbols_clause(c))
 {
   if q == [] then {} else
     symbols(q[1..]) + symbols_clause(q[0])
@@ -35,7 +37,6 @@ predicate evaluate_clause(c:clause, r:valuation) {
 predicate evaluate(q:query, r:valuation) {
   forall i :: 0 <= i < |q| ==> evaluate_clause(q[i], r)
 }
-
 
 ///////////////////////////////////
 // TASK 1: Duplicate-free sequences
@@ -270,19 +271,125 @@ method naive_solve (q:query) returns (sat:bool, r:valuation)
 // removed from the clause because those literals are false and 
 // cannot contribute to making the clause true.
 function update_clause (x:symbol, b:bool, c:clause) : query
+  ensures (x in symbols_clause(c)) ==> symbols(update_clause(x, b, c)) < symbols_clause(c)
+  ensures (x !in symbols_clause(c)) ==> symbols(update_clause(x, b, c)) == symbols_clause(c)
 {
   if ((x,b) in c) then [] else [remove_symbols_clause(c,{x})]
 }
 
+lemma excl_sym_in_c_eq_excl_sym_in_q(x:symbol, q:query)
+  requires forall c :: c in q ==> x !in symbols_clause(c)
+  ensures x !in symbols(q)
+{}
+
+lemma excl_sym_in_q_eq_excl_sym_in_c(x:symbol, q:query)
+  requires x !in symbols(q)
+  ensures forall c :: c in q ==> x !in symbols_clause(c)
+{}
+
+lemma excl_sym_in_q_is_additive(q1:query, q2:query, x:symbol)
+  requires x !in symbols(q1)
+  requires x !in symbols(q2)
+  ensures x !in symbols(q1+q2)
+{
+  excl_sym_in_q_eq_excl_sym_in_c(x, q1);
+  excl_sym_in_q_eq_excl_sym_in_c(x, q2);
+  assert forall c :: c in q1+q2 ==> x !in symbols_clause(c);
+  excl_sym_in_c_eq_excl_sym_in_q(x, q1+q2);
+}
+
 // This function updates a query under the valuation x:=b. It
 // invokes update_clause on each clause in turn.
-function update_query (x:symbol, b:bool, q:query) : query
+// lemma uz(x:symbol, b:bool, q:query, q_new:query, q':query)
+//   requires |q| > 0
+//   requires q_new == update_clause(x,b,q[0])
+//   requires q' == update_query(x,b,q[1..])
+//   ensures x in symbols(q) ==> symbols(q_new+q') < symbols(q)
+// {
+//   requires |q| > 0
+//   requires q_new == update_clause(x,b,q[0])
+//   requires q' == update_query(x,b,q[1..])
+//   ensures x in symbols(q) ==> symbols(q_new+q') < symbols(q)
+// {
+//   assert x in symbols(q) ==> (x in symbols([q[0]])) || (x in symbols(q[1..]));
+//   if x in symbols([q[0]]) {
+//     if x in symbols(q[1..]) {
+//       assert symbols(q_new) + symbols(q') < symbols(q);
+//     } else {
+//       assert symbols(q_new) + symbols(q') < symbols(q);
+//     }
+//   }
+//   else {
+//     if x in symbols(q[1..]) {
+//       assert symbols(q_new) + symbols(q') < symbols(q);
+//     } else {
+//       assert x !in symbols(q);
+//     }
+//   }
+//   assert x in symbols(q) ==> symbols(q_new+q') < symbols(q);
+// }
+
+lemma ux1(c1:clause, c2:clause)
+  ensures symbols_clause(c1) + symbols_clause(c2) == symbols([c1+c2])
+{}
+
+lemma uy(s1:set<symbol>, s2:set<symbol>, s3:set<symbol>)
+  requires forall x :: x in s1 ==> x in s3
+  requires forall x :: x in s2 ==> x in s3
+  ensures s1 + s2 <= s3
+{
+  assert s1 <= s3;
+  assert s2 <= s3;
+}
+
+lemma  ux(q1:query, q2:query)
+  ensures symbols(q1) + symbols(q2) <= symbols(q1+q2)
+{}
+
+function update_query(x:symbol, b:bool, q:query) : query
+  ensures x !in symbols(update_query(x, b, q))
+  ensures symbols(update_query(x, b, q)) <= symbols(q)
 {
   if q == [] then [] else
     var q_new := update_clause(x,b,q[0]);
     var q' := update_query(x,b,q[1..]);
+    excl_sym_in_q_is_additive(q_new, q', x);
+
+    assert symbols(q_new) <= symbols(q);
+    assert symbols(q') <= symbols(q[1..]);
+    assert symbols(q_new) + symbols(q') <= symbols(q);
+    assert symbols(q_new+q') == symbols(q_new) + symbols(q') <= symbols(q);
+
     q_new + q'
 }
+
+// lemma  uz(x:symbol, b:bool, q:query) 
+//   requires |q| > 0
+//   requires x in symbols(q)
+//   ensures |symbols(update_query(x, b, q))| < |symbols(q)|
+// {
+//   var q' := update_query(x, b, q);
+  
+  
+
+//   // var q_new := update_clause(x,b,q[0]);
+//   // var q' := update_query(x,b,q[1..]);
+  
+//   // if x in symbols_clause(q[0]) {
+//   //   if x in symbols(q[1..]) {
+//   //     // assert symbols(q_new) < symbols(q);
+//   //     // assert symbols(q') <= symbols(q[1..]) <= symbols(q);
+//   //     // assert symbols(q_new) + symbols(q') < symbols(q);
+//   //   } else {
+
+//   //   }
+//   // } else {
+//   //   if x in symbols(q[1..]) {
+
+//   //   }
+//   // }
+//   // assert symbols(q_new) + symbols(q') < symbols(q);
+// }
 
 // Updating a query under the valuation x:=b is the same as updating 
 // the valuation itself and leaving the query unchanged.
@@ -313,15 +420,6 @@ lemma evalute_update_query_is_evaluate_udpate_clause(x:symbol, b:bool, r:valuati
   var q' := update_query(x, b, q);
   assert evaluate(q', r) == (forall c' :: c' in q' ==> evaluate_clause(c', r));
 }
-
-lemma update_clause_does_not_incl_x(x:symbol, b:bool, c:clause)
-  ensures forall i :: 0 <= i < |update_clause(x,b,c)| ==> (x,b) !in update_clause(x,b,c)[i]
-  ensures forall i :: 0 <= i < |update_clause(x,b,c)| ==> (x,!b) !in update_clause(x,b,c)[i]
-{}
-
-lemma evalute_clause_is_check_in_r(c:clause, r:valuation)
-  ensures evaluate_clause(c,r) <==> (exists i :: 0 <= i < |c| && c[i] in r.Items)
-{}
 
 lemma evaluate_clause_c_expansion(x:symbol, b:bool, c:clause, r:valuation)
   requires x !in r.Keys
@@ -367,23 +465,10 @@ lemma set_size_one_identity(x:symbol, xs:set<symbol>)
   }
 }
 
-lemma set_size_one_anti_identity(x:symbol, xs:set<symbol>, y:symbol)
-  requires |xs| == 1 && x in xs
-  ensures y !in xs ==> y != x
-{
-}
-
 lemma set_size_one_clause_relation(c:clause, xs:set<symbol>, x:symbol)
   requires |xs| == 1 && x in xs
   ensures forall xb :: xb in c && xb.0 !in xs ==> xb in c && xb.0 != x
 {}
-
-lemma set_size_one_identity2(x:symbol, xs:set<symbol>, y:symbol)
-  requires |xs| == 1 && x in xs
-  ensures y in xs ==> y == x
-{
-  set_size_one_identity(x, xs);
-}
 
 lemma set_size_one_clause_relation2(c:clause, xs:set<symbol>, x:symbol)
   requires |xs| == 1 && x in xs
@@ -513,6 +598,8 @@ lemma evaluate_update_query(x:symbol, b:bool, r:valuation, q:query)
 method simp_solve (q:query) returns (sat:bool, r:valuation)
   ensures sat==true ==> evaluate(q,r)
   ensures sat==false ==> forall r :: !evaluate(q,r)
+  ensures forall x :: x in r.Keys ==> x in symbols(q)
+  decreases symbols(q)
 {
   if (q == []) {
     return true, map[];
@@ -520,16 +607,23 @@ method simp_solve (q:query) returns (sat:bool, r:valuation)
     return false, map[];
   } else {
     var x := q[0][0].0;
+
+    // uz(x, true, q);
     sat, r := simp_solve(update_query(x,true,q));
     if (sat) {
+      evaluate_update_query(x, true, r, q);
       r := r[x:=true];
       return;
     } 
+
+    // uz(x, false, q);
     sat, r := simp_solve(update_query(x,false,q));
     if (sat) {
+      evaluate_update_query(x, false, r, q);
       r := r[x:=false];
       return;
     }
+
     return sat, map[];
   }
 }
