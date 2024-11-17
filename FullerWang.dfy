@@ -115,6 +115,7 @@ lemma dupe_free_concat(xs:seq<symbol>, ys:seq<symbol>)
 function remove_symbols_clause(c:clause, xs:set<symbol>) : clause
   ensures symbols_clause(remove_symbols_clause(c, xs)) == symbols_clause(c) - xs
   ensures (forall x :: x in xs && x !in symbols_clause(c)) ==> (remove_symbols_clause(c, xs) == c)
+  decreases |c|
 {
   if c == [] then [] else
     var c' := remove_symbols_clause(c[1..], xs);
@@ -595,6 +596,66 @@ lemma evaluate_update_query(x:symbol, b:bool, r:valuation, q:query)
 // appears in the query, and makes two recursive solving attempts: one 
 // with that symbol evaluated to true, and one with it evaluated to false.
 // If neither recursive attempt succeeds, the query is unsatisfiable.
+lemma x_in_r_keys(x:symbol,r:valuation)
+  requires x in r.Keys
+  ensures ((x,true) in r.Items || (x, false) in r.Items)
+{
+  assert x in r.Keys;
+  assert r[x] == true || r[x] == false;
+  assert r[x] == true ==> (x,true) in r.Items;
+  assert exists b :: (x,b) in r.Items;
+}
+
+lemma x_in_r_keys_general(r:valuation)
+  ensures forall x:symbol :: (x in r.Keys) ==> ((x,true) in r.Items || (x, false) in r.Items)
+{
+  forall x:symbol | x in r.Keys {
+    x_in_r_keys(x,r);
+  }
+}
+
+lemma possible_x_r_relations(r:valuation)
+  ensures forall x:symbol :: x !in r.Keys || (x, true) in r.Items || (x, false) in r.Items
+{
+  assert forall x :: x in r.Keys || x !in r.Keys;
+  x_in_r_keys_general(r);
+}
+
+lemma imp_x_nin_r(x:symbol, q:query, r:valuation)
+  requires x !in r.Keys
+  requires !evaluate(update_query(x,false,q), r)
+  requires !evaluate(update_query(x,true,q), r)
+  ensures !evaluate(q,r)
+{
+  evaluate_update_query(x, true, r, q);
+}
+
+lemma imp_xt_in_r(x:symbol, q:query, r:valuation)
+  requires (x,true) in r.Items
+  requires !evaluate(update_query(x,false,q), r)
+  requires !evaluate(update_query(x,true,q), r)
+  ensures !evaluate(q,r)
+{
+  var r' := r - {x};
+  assert !evaluate(update_query(x,true,q), r');
+  evaluate_update_query(x, true, r', q);
+  assert !evaluate(q,r'[x:=true]);
+  assert !evaluate(q,r);
+}
+
+lemma imp_xf_in_r(x:symbol, q:query, r:valuation)
+  requires (x,false) in r.Items
+  requires !evaluate(update_query(x,true,q), r)
+  requires !evaluate(update_query(x,false,q), r)
+  ensures !evaluate(q,r)
+{
+  var r' := r - {x};
+  assert !evaluate(update_query(x,false,q), r');
+  evaluate_update_query(x, false, r', q);
+  assert !evaluate(q,r'[x:=false]);
+  assert !evaluate(q,r);
+}
+
 method simp_solve (q:query) returns (sat:bool, r:valuation)
   ensures sat==true ==> evaluate(q,r)
   ensures sat==false ==> forall r :: !evaluate(q,r)
@@ -608,7 +669,6 @@ method simp_solve (q:query) returns (sat:bool, r:valuation)
   } else {
     var x := q[0][0].0;
 
-    // uz(x, true, q);
     sat, r := simp_solve(update_query(x,true,q));
     if (sat) {
       evaluate_update_query(x, true, r, q);
@@ -616,12 +676,27 @@ method simp_solve (q:query) returns (sat:bool, r:valuation)
       return;
     } 
 
-    // uz(x, false, q);
     sat, r := simp_solve(update_query(x,false,q));
     if (sat) {
       evaluate_update_query(x, false, r, q);
       r := r[x:=false];
       return;
+    }
+
+    forall r
+      ensures !evaluate(q,r)
+    {
+      possible_x_r_relations(r);
+      if (x !in r.Keys) {
+        imp_x_nin_r(x,q,r);
+        assert !evaluate(q,r);
+      } else if ((x,true) in r.Items) {
+        imp_xt_in_r(x,q,r);
+        assert !evaluate(q,r);
+      } else if ((x,false) in r.Items) {
+        imp_xf_in_r(x,q,r);
+        assert !evaluate(q,r);
+      }
     }
 
     return sat, map[];
