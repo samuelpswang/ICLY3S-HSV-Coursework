@@ -109,7 +109,6 @@ text \<open> A function that converts a list of digits back into a natural numbe
 fun sum10 :: "nat list \<Rightarrow> nat"
 where "sum10 [] = 0" | "sum10 (d # ds) = d + 10 * sum10 ds"
 
-
 text \<open> Applying digits10 then sum10 gets you back to the same number (helper lemma).  \<close>
 lemma digits10_sum10_inverse_helper: "ds = digits10 n \<Longrightarrow> sum10 ds = n"
 proof (induct ds arbitrary:n)
@@ -139,17 +138,39 @@ text \<open> Applying digits10 then sum10 gets you back to the same number. \<cl
 theorem digits10_sum10_inverse: "sum10 (digits10 n) = n"
 using digits10_sum10_inverse_helper by blast
 
-text \<open> Applying sum10 then digits10 does not always get you back to the same list. \<close>
-theorem sum10_digits10_not_inverse: "\<exists>ds. digits10 (sum10 ds) \<noteq> ds"
+text \<open> Applying sum10 then digits10 does not always get you back to the same list (helper lemma). \<close>
+lemma sum10_digits10_not_inverse_helper: "\<exists>(ds::nat list). digits10 (sum10 ds) \<noteq> ds"
 by (metis digits10.simps not_Cons_self2 numeral_eq_Suc sum10.simps(1) zero_less_Suc)
+
+text \<open> Applying sum10 then digits10 does not always get you back to the same list. \<close>
+theorem sum10_digits10_not_inverse: "\<not>(\<forall>(ds::nat list). digits10 (sum10 ds) = ds)"
+using sum10_digits10_not_inverse_helper by blast
 
 
 section \<open> Task 4: A divisibility theorem. \<close>
 
-theorem y:
-  "\<forall>n\<in>\<nat>. (ds = digits10 n) \<and> (size ds = 6) \<and> (ds(0) = ds(2) = ds(4)) \<and> (ds(1) = ds(3) = ds(5))
-  \<Longrightarrow> n mod 37 = 0"
-  
+text \<open> Any 6-digit number of the form ABABAB is divisible by 37 (helper lemma). \<close>
+lemma pat_ababab_is_37_divisible_helper: "(ds = digits10 n \<and> ds = [a, b, a, b, a, b]) \<Longrightarrow> n mod 37 = 0"
+proof -
+  assume"(ds = digits10 n \<and> ds = [a, b, a, b, a, b])"
+  hence "n = (sum10 ds)" using digits10_sum10_inverse by presburger
+  hence "n = (sum10 [a, b, a, b, a, b])" using \<open>ds = digits10 n \<and> ds = [a, b, a, b, a, b]\<close> by blast
+  hence "n = (sum10 [0, b, 0, b, 0, b]) + (sum10 [a, 0, a, 0, a, 0])" by auto
+  hence "n = (10 * sum10 [b, 0, b, 0, b]) + (sum10 [a, 0, a, 0, a])" by auto
+  also have "sum10 [a, 0, a, 0, a] mod 37 = 0 \<and> sum10 [b, 0, b, 0, b] mod 37 = 0" by auto
+  hence "10 * sum10 [b, 0, b, 0, b] mod 37 = 0" by simp
+  hence "(10 * sum10 [b, 0, b, 0, b] + sum10 [a, 0, a, 0, a]) mod 37 = 0" by auto
+  hence "n mod 37 = 0" using calculation by force
+  show "n mod 37 = 0" using \<open>n mod 37 = 0\<close> by blast
+qed
+
+text \<open> Any 6-digit number of the form ABABAB is divisible by 37. \<close>
+theorem pat_ababab_is_37_divisible:
+  "((ds = digits10 n) \<and> (length ds = 6) \<and>
+  ((hd ds) = (hd (tl (tl ds)))) \<and> ((hd ds) = (hd (tl (tl (tl (tl ds)))))) \<and>
+  ((hd (tl ds)) = (hd (tl (tl (tl ds))))) \<and> ((hd (tl ds)) = (hd (tl (tl (tl (tl (tl ds))))))))
+  \<Longrightarrow> (n mod 37 = 0)"
+by (metis One_nat_def diff_Suc_1 eval_nat_numeral(3) length_greater_0_conv length_tl list.collapse list.size(3) numeral_eq_Suc numeral_plus_numeral pat_ababab_is_37_divisible_helper plus_1_eq_Suc pred_numeral_simps(1) pred_numeral_simps(2) semiring_norm(2) semiring_norm(28) semiring_norm(4) zero_neq_numeral)
 
 
 section \<open> Task 5: Verifying a naive SAT solver. \<close>
