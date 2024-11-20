@@ -14,7 +14,8 @@ datatype "circuit" =
 | INPUT "int"
 
 text \<open> Simulates a circuit given a valuation for each input wire. \<close>
-fun simulate where
+fun simulate
+where
   "simulate (AND c1 c2) \<rho> = ((simulate c1 \<rho>) \<and> (simulate c2 \<rho>))"
 | "simulate (OR c1 c2) \<rho> = ((simulate c1 \<rho>) \<or> (simulate c2 \<rho>))"
 | "simulate (NAND c1 c2) \<rho> = (\<not> ((simulate c1 \<rho>) \<and> (simulate c2 \<rho>)))"
@@ -24,8 +25,8 @@ fun simulate where
 | "simulate (INPUT i) \<rho> = \<rho> i"
 
 text \<open> Equivalence between circuits. \<close>
-fun circuits_equiv (infix "\<sim>" 50) where
-  "c1 \<sim> c2 = (\<forall>\<rho>. simulate c1 \<rho> = simulate c2 \<rho>)"
+fun circuits_equiv (infix "\<sim>" 50)
+where "c1 \<sim> c2 = (\<forall>\<rho>. simulate c1 \<rho> = simulate c2 \<rho>)"
 
 text \<open> A transformation that replaces AND/OR/NOT gates with NAND gates. \<close>
 fun intro_nand where
@@ -68,118 +69,79 @@ section \<open> Task 2: Converting numbers to lists of digits. \<close>
 
 text \<open> Turns a natural number into a list of digits in reverse order. \<close>
 fun digits10 :: "nat \<Rightarrow> nat list"
-where
-  "digits10 n = (if n < 10 then [n] else (n mod 10) # digits10 (n div 10))"
-
-(*x*)
-text \<open> Every digit is less than 10 (helper lemma). \<close>
-lemma digits10_all_below_10_helper: 
-  "ds = digits10 n \<Longrightarrow> \<forall>d \<in> set ds. d < 10"
-proof (induct n arbitrary: ds rule: digits10.induct)
-  case (1 n)
-  then show ?case
-  (* When calling digits10 n, there are two possible cases: n < 10 and n \<ge> (based on the
-    function definition above). Therefore, the proof needs to consider both the cases. *)
-  proof (cases "n < 10")
-    case True
-    (* This is the base case, when n is less than 10. In this case, digits10 will return [n].
-    Therefore, ds will be equal to [n] and since n < 10 by our assumption for the base case, 
-    all the elements in ds are less than 10. *)
-    then show ?thesis try
-      by (simp add: "1.prems")
-  next
-    case False
-    (* This is the recursive case, when n is greater than or equal to 10. Each call to digits10 n 
-    produces a list with the list digits10 (n div 10) appended to the element (n mod 10). The 
-    element (n mod 10) will always be less than 10 since it is the remainder when dividing n by
-    10. Since each recursive call to digits10 will be with a number smaller than n, i.e. n div 10
-    and so on, each digit appended to the list will also be less than 10 by the induction hypothesis. *)
-    with 1 have "ds = (n mod 10) # digits10 (n div 10)" try
-      by (meson digits10.simps)
-    hence "\<forall>d \<in> set (digits10 (n div 10)). d < 10" using 1 False try
-      by blast
-    thus ?thesis try
-      by (metis \<open>ds = n mod 10 # digits10 (n div 10)\<close> mod_less_divisor set_ConsD zero_less_numeral)
-  qed
-qed
-
-
+where "digits10 n = (if n < 10 then [n] else (n mod 10) # digits10 (n div 10))"
 
 text \<open> Every digit is less than 10 (helper lemma). \<close>
 lemma digits10_all_below_10_helper: "ds = digits10 n \<Longrightarrow> \<forall>d\<in>set(ds). d<10"
-proof (induct ds)
+proof (induct ds arbitrary:n)
   case Nil
   show ?case by simp
 next
   case (Cons a ds)
-
-  have "(ds = digits10 n \<Longrightarrow> \<forall>d\<in>set ds. d < 10) \<Longrightarrow>(ds = digits10 (n div 10) \<Longrightarrow> \<forall>d\<in>set ds. d < 10)" try
-(*
-
-  hence "a = n mod 10" by (metis \<open>a # ds = digits10 n\<close> digits10.simps list.inject mod_less)
-  hence "a < 10" by simp
+  hence "a = n mod 10" by (metis digits10.simps list.inject mod_less)
+  hence "a<10" by simp
   {
-    assume "n \<ge> 10"
-    hence "ds = digits10 (n div 10)" by (metis \<open>a # ds = digits10 n\<close> digits10.simps linorder_not_less list.sel(3))
-    hence "ds = digits10 (n div 10) \<Longrightarrow> \<forall>d\<in>set ds. d < 10" using \<open>ds = digits10 (n div 10) \<Longrightarrow> \<forall>d\<in>set ds. d < 10\<close> by fastforce
-    hence "\<forall>d\<in>set(a # ds). d < 10" by (metis \<open>a < 10\<close> \<open>ds = digits10 (n div 10)\<close> set_ConsD)
+    assume "n\<ge>10"
+    hence "ds = digits10 (n div 10)" by (metis Cons.prems digits10.elims le_imp_less_Suc list.inject not_less_eq)
+    hence "\<forall>d\<in>set(a # ds). d<10" by (metis Cons.hyps \<open>a < 10\<close> insertE list.set(2))
   }
-  moreover
-  {
+  moreover {
     assume "n < 10"
-    hence "ds = Nil" using \<open>a # ds = digits10 n\<close> by auto
-    hence "\<forall>d\<in>set(a # ds). d < 10" by (simp add: \<open>a < 10\<close>)
+    hence "ds = Nil" using Cons.prems by auto
+    hence "\<forall>d\<in>set(ds). d<10" by simp
+    hence "\<forall>d\<in>set(a # ds). d<10" by (simp add: \<open>a < 10\<close>)
   }
-  ultimately show ?case sorry
-*)
+  ultimately show ?case by linarith
 qed
 
 text \<open> Every digit is less than 10. \<close>
-theorem  "\<forall>d \<in> set(digits10 n). d < 10"
-  using digits10_all_below_10_helper by blast
+theorem digits10_all_below_10: "\<forall>d\<in>set(digits10 n). d<10"
+using digits10_all_below_10_helper by blast
 
-text \<open> Function digits10 function will never return an empty set. \<close>
-theorem "\<forall>k. digits10 k \<noteq> Nil"
-  by simp
+text \<open> Function digits10 will never return an empty list. \<close>
+theorem digits10_not_empty_list: "\<forall>k\<in>\<nat>. digits10 k \<noteq> Nil"
+by simp
 
 
-text \<open> Task 3: Converting to and from digit lists. \<close>
+section \<open> Task 3: Converting to and from digit lists. \<close>
 
 text \<open> A function that converts a list of digits back into a natural number. \<close>
 fun sum10 :: "nat list \<Rightarrow> nat"
-where
-  "sum10 [] = 0"
-| "sum10 (d # ds) = d + 10 * sum10 ds"
+where "sum10 [] = 0" | "sum10 (d # ds) = d + 10 * sum10 ds"
 
-value "sum10 [2,4]"
 
-text \<open> Helper lemma...  \<close>
-lemma hl:
-  "ds = digits10 n \<Longrightarrow> sum10 ds = n"
-proof (induct ds)
+text \<open> Applying digits10 then sum10 gets you back to the same number (helper lemma).  \<close>
+lemma digits10_sum10_inverse_helper: "ds = digits10 n \<Longrightarrow> sum10 ds = n"
+proof (induct ds arbitrary:n)
   case Nil
-  then show ?case by (metis digits10.simps null_rec(1) null_rec(2))
+  then show ?case by (metis digits10.elims list.discI)
 next
   case (Cons a ds)
   hence "a = n mod 10" by (metis digits10.simps list.inject mod_less)
-  hence "\<exists>k. n = a + 10k" try
+  {
+    assume "n<10"
+    hence "ds = Nil" using Cons.prems by auto
+    hence "a = n"  by (simp add: \<open>a = n mod 10\<close> \<open>n < 10\<close>)
+    hence "sum10 (a # ds) = a" by (simp add: \<open>ds = []\<close>)
+    hence "sum10 (a # ds) = n" by (simp add: \<open>a = n\<close>)
+  }
+  moreover {
+    assume "n\<ge>10"
+    hence "ds = digits10 (n div 10)" by (metis Cons.prems digits10.simps dual_order.strict_iff_not list.sel(3))
+    also have "n = a + 10 * (n div 10)" by (simp add: \<open>a = n mod 10\<close>)
+    also have "sum10 (a # ds) = a + 10 * sum10 ds" by simp
+    hence "sum10 (a # ds) = n" using Cons.hyps \<open>ds = digits10 (n div 10)\<close> \<open>n = a + 10 * (n div 10)\<close> sum10.simps(2) by presburger
+  }
+  ultimately show ?case by linarith
 qed
 
 text \<open> Applying digits10 then sum10 gets you back to the same number. \<close>
-theorem digits10_sum10_inverse: 
-  "sum10 (digits10 n) = n"
-  by (simp add: hl)
+theorem digits10_sum10_inverse: "sum10 (digits10 n) = n"
+using digits10_sum10_inverse_helper by blast
 
-text \<open> X. \<close>
-theorem digits10_sum10_inverse_2: 
-  "\<not>(digits10 (sum10 ds) = ds)"
-proof (induct ds)
-  case Nil
-  then show ?case by simp
-next
-  case (Cons a ds)
-  then show ?case sorry
-qed
+text \<open> Applying sum10 then digits10 does not always get you back to the same list. \<close>
+theorem sum10_digits10_not_inverse: "\<exists>ds. digits10 (sum10 ds) \<noteq> ds"
+by (metis digits10.simps not_Cons_self2 numeral_eq_Suc sum10.simps(1) zero_less_Suc)
 
 
 section \<open> Task 4: A divisibility theorem. \<close>
@@ -191,7 +153,7 @@ theorem y:
 
 
 section \<open> Task 5: Verifying a naive SAT solver. \<close>
-
+      
 text \<open> This function can be used with List.fold to simulate a do-until loop. \<close>
 definition until :: "('a \<Rightarrow> bool) \<Rightarrow> 'a \<Rightarrow> 'a option \<Rightarrow> 'a option" 
   where
