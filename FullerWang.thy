@@ -174,15 +174,14 @@ by (metis One_nat_def diff_Suc_1 eval_nat_numeral(3) length_greater_0_conv lengt
 
 
 section \<open> Task 5: Verifying a naive SAT solver. \<close>
-      
+
 text \<open> This function can be used with List.fold to simulate a do-until loop. \<close>
 definition until :: "('a \<Rightarrow> bool) \<Rightarrow> 'a \<Rightarrow> 'a option \<Rightarrow> 'a option" 
-  where
-  "until p x z == if z = None then if p x then Some x else None else z" 
+where "until p x z == if z = None then if p x then Some x else None else z" 
 
 text \<open> Once the loop condition holds, the return value is fixed. \<close>
 lemma until_some: "fold (until p) xs (Some z) = Some z"
-  by (induct xs, auto simp add: until_def)
+by (induct xs, auto simp add: until_def)
 
 text \<open> If the loop returns None, the condition holds for no element of the input list. \<close>
 lemma until_none: "fold (until p) xs None = None \<Longrightarrow> list_all (\<lambda>x. \<not> p x) xs"
@@ -248,13 +247,11 @@ type_synonym query = "clause list"
 
 text \<open> Given a valuation, evaluate a clause to its truth value. \<close>
 definition evaluate_clause :: "valuation \<Rightarrow> clause \<Rightarrow> bool"
-where 
-  "evaluate_clause \<rho> c = list_ex (List.member \<rho>) c"
+where "evaluate_clause \<rho> c = list_ex (List.member \<rho>) c"
 
 text \<open> Given a valuation, evaluate a query to its truth value. \<close>
 definition evaluate :: "query \<Rightarrow> valuation \<Rightarrow> bool"
-where 
-  "evaluate q \<rho> = list_all (evaluate_clause \<rho>) q"
+where "evaluate q \<rho> = list_all (evaluate_clause \<rho>) q"
 
 text \<open> Some sample queries and valuations. \<close>
 (* q1 is (a \<or> b) \<and> (\<not>b \<or> c) *)
@@ -283,18 +280,15 @@ value "mk_valuation_list [''a'',''b'']"
 value "mk_valuation_list [''a'',''b'',''c'']"
 
 fun symbol_of_literal :: "literal \<Rightarrow> symbol"
-where
-  "symbol_of_literal (x, _) = x"
+where "symbol_of_literal (x, _) = x"
 
 text \<open> Extract the list of symbols from the given clause. \<close>
 definition symbol_list_clause :: "clause \<Rightarrow> symbol list"
-where 
-  "symbol_list_clause c == remdups (map symbol_of_literal c)"
+where "symbol_list_clause c == remdups (map symbol_of_literal c)"
 
 text \<open> Extract the list of symbols from the given query. \<close>
 definition symbol_list :: "query \<Rightarrow> symbol list"
-where
-  "symbol_list q == remdups (concat (map symbol_list_clause q))"
+where "symbol_list q == remdups (concat (map symbol_list_clause q))"
 
 value "symbol_list q1"
 value "symbol_list q2"
@@ -305,8 +299,7 @@ text \<open> A naive SAT solver. It works by constructing the list of all
   that makes the query true. If none of the valuations make the query
   true, it returns None. \<close>
 definition naive_solve :: "query \<Rightarrow> valuation option"
-where
-  "naive_solve q == 
+where "naive_solve q == 
   let xs = symbol_list q in 
   let \<rho>s = mk_valuation_list xs in
   List.fold (until (evaluate q)) \<rho>s None"
@@ -316,19 +309,18 @@ value "naive_solve q2"
 value "naive_solve q3"
 value "naive_solve q4"
 
-text \<open> If the naive SAT solver returns a valuation, then that 
-  valuation really does make the query true. \<close>
+text \<open> If the naive SAT solver returns a valuation, then that valuation really does make the query true. \<close>
 theorem naive_solve_correct_sat:
-  assumes "naive_solve q = Some \<rho>"
-  shows "evaluate q \<rho>"
-  oops
+assumes "naive_solve q = Some \<rho>"
+shows "evaluate q \<rho>"
+by (metis assms naive_solve_def until_none_some)
 
-text \<open> If the naive SAT solver returns no valuation, then none of the valuations 
-  it tried make the query true. \<close>
+text \<open> If the naive SAT solver returns no valuation, then none of the valuations it tried make the query true. \<close>
 theorem naive_solve_correct_unsat:
-  assumes "naive_solve q = None"
-  shows "\<forall>\<rho> \<in> set (mk_valuation_list (symbol_list q)). \<not> evaluate q \<rho>" 
-  oops
+assumes "naive_solve q = None"
+shows "\<forall>\<rho> \<in> set (mk_valuation_list (symbol_list q)). \<not> evaluate q \<rho>" 
+by (metis assms list.pred_set naive_solve_def until_none)
+
 
 section \<open> Task 6: Verifying a simple SAT solver. \<close>
 
