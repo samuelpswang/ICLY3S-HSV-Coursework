@@ -59,54 +59,54 @@ module multiplier (
 
       // Value `stage` increments on each clock cycle
       // Excluding times where stage resets to 0
-      assert (!(stage != 0) || (stage == $past(stage) + 1));
+      assert property ((stage != 0) |-> (stage == $past(stage) + 1));
 
       // Main multiplier property
-      assert (!(stage == 9) || out == $past(in1,9) * $past(in2,9));
+      assert property ((stage == 9) |-> out == $past(in1,9) * $past(in2,9));
 
       // Value `out` monotonically increases during execution
       // Excluding stage = 0 as no previous state can be observed
-      assert (!(stage != 0) || ($past(out) <= out));
+      assert property ((stage != 0) |-> ($past(out) <= out));
 
       // Fourth stage of computation implies accumulator holds in1 * in2[3:0]
       // Result of forth stage of computation is reflected in stage 5
-      assert (!(stage == 5) || (accumulator == $past(in1[3:0],5) * $past(in2,5)));
+      assert property ((stage == 5) |-> (accumulator == $past(in1[3:0],5) * $past(in2,5)));
 
       // Prove similar properties about the value of the accumulator in the other stages
       // Accumulator needs to be 0 at the start, otherwise result will be incorrect
-      assert (!(stage == 0) || (accumulator == 0));
-      assert (!(stage == 1) || (accumulator == 0));
-      assert (!(stage == 2) || (accumulator == $past(in1[0],2) * $past(in2,2)));
-      assert (!(stage == 3) || (accumulator == $past(in1[1:0],3) * $past(in2,3)));
-      assert (!(stage == 4) || (accumulator == $past(in1[2:0],4) * $past(in2,4)));
-      assert (!(stage == 6) || (accumulator == $past(in1[4:0],6) * $past(in2,6)));
-      assert (!(stage == 7) || (accumulator == $past(in1[5:0],7) * $past(in2,7)));
-      assert (!(stage == 8) || (accumulator == $past(in1[6:0],8) * $past(in2,8)));
-      assert (!(stage == 9) || (accumulator == $past(in1[7:0],9) * $past(in2,9)));
-      
+      assert property ((stage == 0) |-> (accumulator == 0));
+      assert property ((stage == 1) |-> (accumulator == 0));
+      assert property ((stage == 2) |-> (accumulator == $past(in1[0],2) * $past(in2,2)));
+      assert property ((stage == 3) |-> (accumulator == $past(in1[1:0],3) * $past(in2,3)));
+      assert property ((stage == 4) |-> (accumulator == $past(in1[2:0],4) * $past(in2,4)));
+      assert property ((stage == 6) |-> (accumulator == $past(in1[4:0],6) * $past(in2,6)));
+      assert property ((stage == 7) |-> (accumulator == $past(in1[5:0],7) * $past(in2,7)));
+      assert property ((stage == 8) |-> (accumulator == $past(in1[6:0],8) * $past(in2,8)));
+      assert property ((stage == 9) |-> (accumulator == $past(in1[7:0],9) * $past(in2,9)));
+
       // Prove that in1_shifted always holds the initial value of in1, shifted right by stage bits
-      assert (!(stage == 0) || (in1_shifted == 0));
-      assert (!(stage == 1) || (in1_shifted == $past(in1,1) >> (stage-1)));
-      assert (!(stage == 2) || (in1_shifted == $past(in1,2) >> (stage-1)));
-      assert (!(stage == 3) || (in1_shifted == $past(in1,3) >> (stage-1)));
-      assert (!(stage == 4) || (in1_shifted == $past(in1,4) >> (stage-1)));
-      assert (!(stage == 5) || (in1_shifted == $past(in1,5) >> (stage-1)));
-      assert (!(stage == 6) || (in1_shifted == $past(in1,6) >> (stage-1)));
-      assert (!(stage == 7) || (in1_shifted == $past(in1,7) >> (stage-1)));
-      assert (!(stage == 8) || (in1_shifted == $past(in1,8) >> (stage-1)));
-      assert (!(stage == 9) || (in1_shifted == $past(in1,9) >> (stage-1)));
+      assert property ((stage == 0) |-> (in1_shifted == 0));
+      assert property ((stage == 1) |-> (in1_shifted == $past(in1,1) >> (stage-1)));
+      assert property ((stage == 2) |-> (in1_shifted == $past(in1,2) >> (stage-1)));
+      assert property ((stage == 3) |-> (in1_shifted == $past(in1,3) >> (stage-1)));
+      assert property ((stage == 4) |-> (in1_shifted == $past(in1,4) >> (stage-1)));
+      assert property ((stage == 5) |-> (in1_shifted == $past(in1,5) >> (stage-1)));
+      assert property ((stage == 6) |-> (in1_shifted == $past(in1,6) >> (stage-1)));
+      assert property ((stage == 7) |-> (in1_shifted == $past(in1,7) >> (stage-1)));
+      assert property ((stage == 8) |-> (in1_shifted == $past(in1,8) >> (stage-1)));
+      assert property ((stage == 9) |-> (in1_shifted == $past(in1,9) >> (stage-1)));
 
       // Prove that in2_shifted always holds the initial value of in2, shifted left by stage bits
       // Impossible to say something from stage 0 since it will be a leftover result, plus we do not care
-      assert (!(stage == 1) || (in2_shifted == $past(in2,1) << (stage-1)));
-      assert (!(stage == 2) || (in2_shifted == $past(in2,2) << (stage-1)));
-      assert (!(stage == 3) || (in2_shifted == $past(in2,3) << (stage-1)));
-      assert (!(stage == 4) || (in2_shifted == $past(in2,4) << (stage-1)));
-      assert (!(stage == 5) || (in2_shifted == $past(in2,5) << (stage-1)));
-      assert (!(stage == 6) || (in2_shifted == $past(in2,6) << (stage-1)));
-      assert (!(stage == 7) || (in2_shifted == $past(in2,7) << (stage-1)));
-      assert (!(stage == 8) || (in2_shifted == $past(in2,8) << (stage-1)));
-      assert (!(stage == 9) || (in2_shifted == $past(in2,9) << (stage-1)));
+      assert property ((stage == 1) |-> (in2_shifted == $past(in2,1) << (stage-1)));
+      assert property ((stage == 2) |-> (in2_shifted == $past(in2,2) << (stage-1)));
+      assert property ((stage == 3) |-> (in2_shifted == $past(in2,3) << (stage-1)));
+      assert property ((stage == 4) |-> (in2_shifted == $past(in2,4) << (stage-1)));
+      assert property ((stage == 5) |-> (in2_shifted == $past(in2,5) << (stage-1)));
+      assert property ((stage == 6) |-> (in2_shifted == $past(in2,6) << (stage-1)));
+      assert property ((stage == 7) |-> (in2_shifted == $past(in2,7) << (stage-1)));
+      assert property ((stage == 8) |-> (in2_shifted == $past(in2,8) << (stage-1)));
+      assert property ((stage == 9) |-> (in2_shifted == $past(in2,9) << (stage-1)));
 
       // Use a cover statement to prove that 13 is a prime number
       // If the cover statement of "there exist a pair of inputs other than (1,13) that will produce 13" fails
@@ -123,7 +123,7 @@ module multiplier (
       if (rst || stage == 0) din1 <= 0;
       else din1 <= din1 + ((cpin1[stage-1]) << (stage-1));
       // Assert that at any non-initial stage, accumulator must be the same as the "done bits of in1" * "in2"
-      assert (!(stage != 0 && stage != 1) || (accumulator == din1 * cpin2));
+      assert property ((stage != 0 && stage != 1) |-> (accumulator == din1 * cpin2));
    end
 `endif
 
