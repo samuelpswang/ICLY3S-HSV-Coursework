@@ -371,6 +371,87 @@ text \<open> A simple SAT solver. Given a query, it does a three-way case split.
    appears in the query, and makes two recursive solving attempts: one 
    with that symbol evaluated to true, and one with it evaluated to false.
    If neither recursive attempt succeeds, the query is deemed unsatisfiable. \<close>
+
+
+lemma inclusion_implies_cardinality:
+  "(s1::symbol set) < (s2::symbol set) \<and> (finite s1) \<and> (finite s2) \<longrightarrow> card s1 < card s2"
+  using psubset_card_mono by blast
+
+definition simp_solve_measure :: "query \<Rightarrow> nat"
+  where "simp_solve_measure q = card (symbols q)"
+
+lemma symbols_clause_output_is_finite: "finite (symbols_clause c)"
+  by (simp add: symbols_clause_def)
+
+lemma symbols_query_output_is_finite: "finite (symbols q)"
+  by (simp add: symbols_def symbols_clause_output_is_finite)
+
+lemma z2: "\<not>(List.member c (x,True)) \<and> \<not>(List.member c (x,False)) \<Longrightarrow> x\<notin>symbols_clause c"
+  sorry
+(*
+proof
+  assume "\<not>(List.member c (x,True)) \<and> \<not>(List.member c (x,False))"
+  hence "List.member (map symbol_of_literal c) x = False" try
+*)
+
+lemma z1: "(x::symbol) \<notin> symbols (update_clause x True c)"
+  sorry
+(*
+proof
+  {
+    assume "(x::symbol) \<notin> symbols_clause (c::clause)"
+    hence "List.member c (x, True) = False" sorry
+    hence "update_clause x True c = [removeAll (x, False) c]" by (simp add: update_clause_def)
+    hence "(List.member (removeAll (x, False) c) (x, False)) = False" by (simp add: member_def)
+    hence "(List.member (removeAll (x, False) c) (x, True)) = False" by (metis Diff_iff \<open>List.member c (x, True) = False\<close> member_def set_removeAll)
+    hence "x \<notin> symbols_clause (removeAll (x, False) c)" try
+*)
+
+lemma y1: "(x::symbol)\<in>(symbols (q::query)) \<longrightarrow> symbols (update_query x True q) < symbols q"
+  sorry
+
+lemma y2: "(x::symbol)\<in>(symbols (q::query)) \<longrightarrow> symbols (update_query x False q) < symbols q"
+  sorry
+
+lemma x1:
+  "(x::symbol)\<in>(symbols (q::query)) \<longrightarrow> ((simp_solve_measure (update_query x True q)) < (simp_solve_measure q))"
+  by (simp add: psubset_card_mono simp_solve_measure_def y1 symbols_query_output_is_finite)
+  
+lemma x2:
+  "(x::symbol)\<in>(symbols (q::query)) \<longrightarrow> ((simp_solve_measure (update_query x False q)) < (simp_solve_measure q))"
+  by (simp add: psubset_card_mono simp_solve_measure_def y2 symbols_query_output_is_finite)
+
+lemma xb_in_c_imples_x_in_symbols_clause_c:
+  "(c::clause) = (x::symbol, b::bool) # c' \<Longrightarrow> x \<in> symbols_clause c"
+proof
+  assume "c = (x, b) # c'"
+  hence "symbol_of_literal (x, b) = x" by simp
+  hence "x \<in> set (map symbol_of_literal [(x,b)])" by simp
+  hence "x \<in> symbols_clause c" by (simp add: \<open>c = (x, b) # c'\<close> symbols_clause_def)
+  then show "((c::clause) = (x::symbol, b::bool) # c') \<Longrightarrow> (x \<in> symbols_clause c)" by blast
+
+  assume "c = (x, b) # c'"
+  hence "symbols_clause c = symbols_clause c" by simp
+  hence "symbols_clause c \<subseteq> symbols_clause c" by blast
+  then show "c = (x, b) # c' \<Longrightarrow> symbols_clause c \<subseteq> symbols_clause c" by blast
+qed
+
+lemma xb_in_q_implies_x_in_symbols_q:
+  "(q::query) = (c::clause) # q' \<Longrightarrow> (c::clause) = (x::symbol, b::bool) # c' \<Longrightarrow> x \<in> symbols q"
+proof
+  assume "(q::query) = (c::clause) # q'"
+  assume "(c::clause) = (x::symbol, b::bool) # c'"
+  hence "x \<in> symbols q" by (simp add: \<open>q = c # q'\<close> symbols_def xb_in_c_imples_x_in_symbols_clause_c)
+  then show "(q::query) = (c::clause) # q' \<Longrightarrow> (c::clause) = (x::symbol, b::bool) # c' \<Longrightarrow> x \<in> symbols q" by blast
+
+  assume "(q::query) = (c::clause) # q'"
+  assume "(c::clause) = (x::symbol, b::bool) # c'"
+  hence "symbols q = symbols q" by simp
+  hence "symbols q \<subseteq> symbols q" by blast
+  then show "(q::query) = (c::clause) # q' \<Longrightarrow> (c::clause) = (x::symbol, b::bool) # c' \<Longrightarrow> symbols q \<subseteq> symbols q" by blast
+qed
+
+
 function simp_solve :: "query \<Rightarrow> valuation option"
 where
   "simp_solve q = (
@@ -385,8 +466,17 @@ where
          Some \<rho> \<Rightarrow> Some ((x, False) # \<rho>)
        | None \<Rightarrow> None)))"
 by pat_completeness auto
-termination 
-  sorry
+termination
+apply (relation "measure simp_solve_measure")
+apply simp+
+defer
+apply (meson in_measure x2 xb_in_q_implies_x_in_symbols_q)
+proof -
+  have "\<And>q x21 x22 x21a x22a x y. q = (x21a # x22a) # x22 \<Longrightarrow> x21 = x21a # x22a \<Longrightarrow> (x, y) = x21a \<Longrightarrow> x\<in>symbols q" by (meson xb_in_q_implies_x_in_symbols_q)
+  hence "\<And>q x21 x22 x21a x22a x y. q = (x21a # x22a) # x22 \<Longrightarrow> x21 = x21a # x22a \<Longrightarrow> (x, y) = x21a \<Longrightarrow> simp_solve_measure (update_clause x True (x21a # x22a) @ update_query x True x22) < simp_solve_measure ((x21a # x22a) # x22)" by (metis inclusion_implies_cardinality simp_solve_measure_def update_query.simps(2) y1)
+  then show "\<And>q x21 x22 x21a x22a x y. q = (x21a # x22a) # x22 \<Longrightarrow> x21 = x21a # x22a \<Longrightarrow> (x, y) = x21a \<Longrightarrow> simp_solve_measure (update_clause x True (x21a # x22a) @ update_query x True x22) < simp_solve_measure ((x21a # x22a) # x22)" by simp
+qed
+
 
 value "simp_solve q1"
 value "simp_solve q2"
