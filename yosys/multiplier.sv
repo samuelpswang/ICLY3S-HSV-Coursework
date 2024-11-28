@@ -47,6 +47,11 @@ module multiplier (
 
 
 `ifdef FORMAL
+   // Extra registers for Q10
+   reg [7:0] cpin1; // "Copy on in1"
+   reg [7:0] cpin2; // "Copy of in2"
+   reg [7:0] din1; // "Completed bit of in1"
+
    always @(posedge clk) begin
       // Tight upper bound for value `out`
       // Unsigned multiplication --> (2^8 - 1)^2 = 65025
@@ -110,14 +115,11 @@ module multiplier (
 
       // Combining properties in Q5 and Q6 into a single property
       // Set up registers to "remember the input": cpinx = $past(inx,stage)
-      reg [7:0] cpin1;
-      reg [7:0] cpin2;
       if (rst || stage == 0) begin
         cpin1 <= in1;
         cpin2 <= in2;
       end
       // Set up register to track the "completed bits of in1": din1 == cpin1[(stage-2):0]
-      reg [7:0] din1;
       if (rst || stage == 0) din1 <= 0;
       else din1 <= din1 + ((cpin1[stage-1]) << (stage-1));
       // Assert that at any non-initial stage, accumulator must be the same as the "done bits of in1" * "in2"
