@@ -47,7 +47,6 @@ module multiplier (
 
 
 `ifdef FORMAL
-
    always @(posedge clk) begin
       // Tight upper bound for value `out`
       // Unsigned multiplication --> (2^8 - 1)^2 = 65025
@@ -105,35 +104,25 @@ module multiplier (
       assert (!(stage == 9) || (in2_shifted == $past(in2,9) << (stage-1)));
 
       // Use a cover statement to prove that 13 is a prime number
-      // (wip)
-      // If we are in stage 9, we either have result is not 13, or input is (1x13)
-      cover (!(stage == 9) || ((out != 13) || ($past(in1,9) == 13 && $past(in2,9) == 1) || ($past(in1,9) == 1 && $past(in2,9) == 13)));
-      // If we are in stage 9 and input is NOT (1x13), then we will NOT have 13 as a result
-      cover (!((stage == 9) && !($past(in1,9) == 13 && $past(in2,9) == 1) && !($past(in1,9) == 1 && $past(in2,9) == 13)) || (out != 13));
+      // If the cover statement of "there exist a pair of inputs other than (1,13) that will produce 13" fails
+      // Then we have proven that 13 is a prime number
+      cover ((stage == 9) && !($past(in1,9) == 1 && $past(in2,9) == 13) && !($past(in1,9) == 13 && $past(in2,9) == 11) && (out == 13));
 
       // Combining properties in Q5 and Q6 into a single property
-      // Set up registers to remember the input
-      reg [7:0] in1_act;
-      reg [7:0] in2_act;
+      // Set up registers to "remember the input": cpinx = $past(inx,stage)
+      reg [7:0] cpin1;
+      reg [7:0] cpin2;
       if (rst || stage == 0) begin
-        in1_act <= in1;
-        in2_act <= in2;
+        cpin1 <= in1;
+        cpin2 <= in2;
       end
-      // Set up register to track the "completed bits of in1"
-      reg [7:0] in1_done;
-      if (rst || stage == 0) in1_done <= 0;
-      else in1_done <= in1_done + ((in1_act[stage-1]) << (stage-1));
-      // Property
-      assert (!(stage != 0 && stage != 1) || (accumulator == in1_done * in2_act));
-
-      // (wip)
-      // assert (!(stage == 5) || (accumulator == in1_act[3:0] * in2_act));
-      // assert (!(stage == 5) || (accumulator == in1_act[stage-2:0] * in2_act));
-      // assert (!(stage == 5) || (accumulator == in1_done  * in2_act));
-      // assert (!(stage != 0 && stage != 1) || (accumulator == in1_done * in2_act));
-      // assert (!(stage != 0 && stage != 1 && stage != 2) || (accumulator == in1_act[stage-2:0]  * in2_act));
+      // Set up register to track the "completed bits of in1": din1 == cpin1[(stage-2):0]
+      reg [7:0] din1;
+      if (rst || stage == 0) din1 <= 0;
+      else din1 <= din1 + ((cpin1[stage-1]) << (stage-1));
+      // Assert that at any non-initial stage, accumulator must be the same as the "done bits of in1" * "in2"
+      assert (!(stage != 0 && stage != 1) || (accumulator == din1 * cpin2));
    end
-
 `endif
 
 endmodule
