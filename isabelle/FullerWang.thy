@@ -386,37 +386,210 @@ lemma symbols_clause_output_is_finite: "finite (symbols_clause c)"
 lemma symbols_query_output_is_finite: "finite (symbols q)"
   by (simp add: symbols_def symbols_clause_output_is_finite)
 
-lemma z2: "\<not>(List.member c (x,True)) \<and> \<not>(List.member c (x,False)) \<Longrightarrow> x\<notin>symbols_clause c"
-  sorry
-(*
-proof
-  assume "\<not>(List.member c (x,True)) \<and> \<not>(List.member c (x,False))"
-  hence "List.member (map symbol_of_literal c) x = False" try
-*)
+lemma z2: "\<not>(List.member c (x,True)) \<and> \<not>(List.member c (x,False)) \<Longrightarrow> x \<notin> symbols_clause c"
+by (smt (verit, ccfv_SIG) imageE in_set_member list.set_map old.prod.exhaust symbol_of_literal.simps symbols_clause_def)
+
+lemma z3: "List.member c (x,True) \<Longrightarrow> (update_clause x True c) = []"
+using update_clause_def by auto
+
+lemma z4: "List.member c (x,False) \<and> \<not>(List.member c (x,True)) \<Longrightarrow> size (update_clause x True c) == 1"
+  by (simp add: update_clause_def)
+
+lemma z5: "List.member c (x,False) \<and> \<not>(List.member c (x,True)) \<Longrightarrow> \<not>(List.member ((update_clause x True c)!0) (x,True)) \<and> \<not>(List.member ((update_clause x True c)!0) (x,False))"
+  by (simp add: member_def update_clause_def)
+
+lemma z6: "List.member c (x,False) \<and> \<not>(List.member c (x,True)) \<Longrightarrow> x \<notin> symbols_clause ((update_clause x True c)!0)"
+  using z2 z5 by blast
+
+lemma z7: "size q = 1 \<and> q!0 = c \<Longrightarrow> q = [c]"
+  by (metis One_nat_def length_0_conv length_Suc_conv nth_Cons_0)
+
+lemma z9: "size q = 1 \<and> q!0 = c \<and> x\<notin>symbols_clause c \<Longrightarrow> x \<notin> symbols q"
+  using symbols_def z7 by force
+
+lemma z8: "List.member c (x,False) \<and> \<not>(List.member c (x,True)) \<Longrightarrow> x\<notin>symbols (update_clause x True c)"
+using z4 z6 z9 by blast
 
 lemma z1: "(x::symbol) \<notin> symbols (update_clause x True c)"
-  sorry
-(*
-proof
+  by (simp add: member_def symbols_def update_clause_def z2)
+
+lemma z1f: "(x::symbol) \<notin> symbols (update_clause x False c)"
+  by (simp add: member_def symbols_def update_clause_def z2)
+
+lemma w0: "symbols q = \<Union>(set (map symbols_clause q))"
+  using symbols_def by blast
+
+lemma w2: "(List.member c (x,True)) \<or> (List.member c (x,False)) \<longrightarrow> x\<in> symbols_clause c"
+by (metis image_eqI list.set_map member_def symbol_of_literal.simps symbols_clause_def)
+
+lemma w1: "x \<notin> symbols_clause c \<longrightarrow> \<not>(List.member c (x,True)) \<and> \<not>(List.member c (x,False))"
+using w2 by auto
+
+lemma z0: "(x::symbol) \<notin> symbols (update_query x True q)"
+proof (induct q)
+  case Nil
+  then show ?case by (simp add: symbols_def)
+next
+  case (Cons a q)
+  assume "x \<notin> symbols (update_query x True q)"
   {
-    assume "(x::symbol) \<notin> symbols_clause (c::clause)"
-    hence "List.member c (x, True) = False" sorry
-    hence "update_clause x True c = [removeAll (x, False) c]" by (simp add: update_clause_def)
-    hence "(List.member (removeAll (x, False) c) (x, False)) = False" by (simp add: member_def)
-    hence "(List.member (removeAll (x, False) c) (x, True)) = False" by (metis Diff_iff \<open>List.member c (x, True) = False\<close> member_def set_removeAll)
-    hence "x \<notin> symbols_clause (removeAll (x, False) c)" try
-*)
+    assume "x \<in> symbols_clause a"
+    hence "List.member a (x,True) \<or> List.member a (x,False)" using z2 by blast
+    {
+      assume "List.member a (x,True)"
+      hence "x\<notin>symbols (update_query x True [a])" by (simp add: z1)
+      hence "x\<notin>symbols(update_query x True (a#q))" by (simp add: \<open>List.member a (x, True)\<close> local.Cons z3)
+    }
+    moreover {
+      assume "List.member a (x,False)"
+      hence "x\<notin>symbols (update_query x True [a])" by (simp add: z1)
+      hence "x\<notin>symbols(update_query x True (a#q))" using local.Cons symbols_def by force
+    }
+    hence "x\<notin>symbols(update_query x True (a#q))" using \<open>List.member a (x, True) \<or> List.member a (x, False)\<close> calculation by blast
+  }
+  moreover {
+    assume "x \<notin> symbols_clause a"
+    hence "update_clause x True a = [a]" by (simp add: in_set_member update_clause_def w1)
+    hence "x \<notin> symbols (update_query x True [a])" by (metis append_Nil2 update_query.simps(1) update_query.simps(2) z1)
+    hence "x\<notin>symbols(update_query x True (a#q))" using local.Cons symbols_def by auto 
+  }
+  then show ?case using calculation by blast
+qed
+
+lemma z0f: "(x::symbol) \<notin> symbols (update_query x False q)"
+proof (induct q)
+  case Nil
+  then show ?case by (simp add: symbols_def)
+next
+  case (Cons a q)
+  assume "x \<notin> symbols (update_query x False q)"
+  {
+    assume "x \<in> symbols_clause a"
+    hence "List.member a (x,False) \<or> List.member a (x,True)" using z2 by blast
+    {
+      assume "List.member a (x,False)"
+      hence "x\<notin>symbols (update_query x False [a])" by (simp add: symbols_def update_clause_def)
+      hence "x\<notin>symbols(update_query x False (a#q))" by (simp add: \<open>List.member a (x, False)\<close> local.Cons update_clause_def)
+    }
+    moreover {
+      assume "List.member a (x,True)"
+      hence "x\<notin>symbols (update_query x False [a])" by (simp add: z1f)
+      hence "x\<notin>symbols(update_query x False (a#q))" using local.Cons symbols_def by force
+    }
+    hence "x\<notin>symbols(update_query x False (a#q))" using \<open>List.member a (x, False) \<or> List.member a (x, True)\<close> calculation by blast
+  }
+  moreover {
+    assume "x \<notin> symbols_clause a"
+    hence "update_clause x False a = [a]" by (simp add: in_set_member update_clause_def w1)
+    hence "x \<notin> symbols (update_query x False [a])" by (metis append_Nil2 update_query.simps(1) update_query.simps(2) z1f)
+    hence "x\<notin>symbols(update_query x False (a#q))" using local.Cons symbols_def by auto 
+  }
+  then show ?case using calculation by blast
+qed
+
+
+lemma y3: "(\<forall>c. List.member q (c::clause) \<and> (x::symbol) \<notin> symbols_clause c) \<longrightarrow> x\<notin> symbols q"
+  by (simp add: symbols_def)
+
+lemma y4: "((\<forall>(x::symbol). x\<in>(s1::symbol set) \<longrightarrow> x\<in>s2) \<and> (\<exists>y. y\<in>s2 \<and> y\<notin>s1)) \<longrightarrow> (s1 < s2)"
+  by blast
+
+lemma y5: "((\<forall>(x::symbol). x\<in>(symbols q1) \<longrightarrow> x\<in>(symbols q2)) \<and> (\<exists>y. y\<in>(symbols q2) \<and> y\<notin>(symbols q2))) \<longrightarrow> ((symbols q1) < (symbols q2))"
+  by simp
+
+lemma y8: "y \<in> symbols (update_clause x True c) \<longrightarrow> y \<in> symbols_clause c"
+proof 
+  {
+    assume "List.member c (x,True)"
+    hence "y \<in> symbols (update_clause x True c) \<longrightarrow> y \<in> symbols_clause c" by (simp add: symbols_def z3)
+  }
+  moreover {
+    assume "\<not>List.member c (x,True)"
+    {
+      assume "List.member c (x,False)"
+      hence "(update_clause x True c) = [removeAll (x,False) c]" by (simp add: \<open>\<not> List.member c (x, True)\<close> update_clause_def)
+      hence "y \<in> symbols (update_clause x True c) \<longrightarrow> y \<in> symbols_clause c" by (metis Diff_iff \<open>List.member c (x, False)\<close> calculation in_set_member nth_Cons_0 set_removeAll w2 z2 z4 z9)
+    }
+    moreover {
+      assume "\<not>List.member c (x,False)"
+      hence "(update_clause x True c) = [c]" by (simp add: \<open>\<not> List.member c (x, True)\<close> in_set_member update_clause_def)
+      hence "y \<in> symbols (update_clause x True c) \<longrightarrow> y \<in> symbols_clause c" using z9 by force
+    }
+    hence "y \<in> symbols (update_clause x True c) \<longrightarrow> y \<in> symbols_clause c" using calculation by blast
+  }
+  hence "y \<in> symbols (update_clause x True c) \<longrightarrow> y \<in> symbols_clause c" using calculation by auto
+  then show "y \<in> symbols (update_clause x True c) \<Longrightarrow> y \<in> symbols_clause c" by blast
+qed
+
+lemma y8f: "y \<in> symbols (update_clause x False c) \<longrightarrow> y \<in> symbols_clause c"
+proof 
+  {
+    assume "List.member c (x,False)"
+    hence "y \<in> symbols (update_clause x False c) \<longrightarrow> y \<in> symbols_clause c" by (simp add: symbols_def update_clause_def)
+  }
+  moreover {
+    assume "\<not>List.member c (x,False)"
+    {
+      assume "List.member c (x,True)"
+      hence "(update_clause x False c) = [removeAll (x,True) c]" using \<open>\<not> List.member c (x, False)\<close> update_clause_def by presburger
+      hence "y \<in> symbols (update_clause x False c) \<longrightarrow> y \<in> symbols_clause c" by (metis Diff_iff One_nat_def add_Suc_shift in_set_member list.size(3) list.size(4) nth_Cons_0 plus_1_eq_Suc set_removeAll w2 z2 z9)
+    }
+    moreover {
+      assume "\<not>List.member c (x,True)"
+      hence "(update_clause x False c) = [c]" by (simp add: \<open>\<not> List.member c (x, False)\<close> in_set_member update_clause_def)
+      hence "y \<in> symbols (update_clause x False c) \<longrightarrow> y \<in> symbols_clause c" using z9 by force
+    }
+    hence "y \<in> symbols (update_clause x False c) \<longrightarrow> y \<in> symbols_clause c" using calculation by blast
+  }
+  hence "y \<in> symbols (update_clause x False c) \<longrightarrow> y \<in> symbols_clause c" using calculation by auto
+  then show "y \<in> symbols (update_clause x False c) \<Longrightarrow> y \<in> symbols_clause c" by blast
+qed
+  
+
+lemma y6: "y \<in> symbols (update_query x True q) \<longrightarrow> y \<in> symbols q"
+proof (induct q)
+  case Nil
+  then show ?case by simp
+next
+  case (Cons a q)
+  assume "y \<in> symbols (update_query x True q) \<longrightarrow> y \<in> symbols q"
+  hence *: "y \<in> symbols (update_query x True q) \<longrightarrow> y \<in> symbols (a # q)" by (simp add: symbols_def)
+  also have "y \<in> symbols (update_query x True [a]) \<longrightarrow> y \<in> symbols_clause a" using y8 by auto
+  hence "y \<in> symbols (update_query x True [a]) \<longrightarrow> y \<in> symbols [a]" using symbols_def by fastforce
+  hence "y \<in> symbols (update_query x True [a]) \<longrightarrow> y \<in> symbols (a # q)" using symbols_def by force
+  ultimately have "y \<in> symbols (update_query x True (a # q)) \<longrightarrow> y \<in> symbols (a # q)" using symbols_def by force
+  then show ?case by blast
+qed
+
+lemma y6f: "y \<in> symbols (update_query x False q) \<longrightarrow> y \<in> symbols q"
+proof (induct q)
+  case Nil
+  then show ?case by simp
+next
+  case (Cons a q)
+  assume "y \<in> symbols (update_query x False q) \<longrightarrow> y \<in> symbols q"
+  hence *: "y \<in> symbols (update_query x False q) \<longrightarrow> y \<in> symbols (a # q)" by (simp add: symbols_def)
+  also have "y \<in> symbols (update_query x False [a]) \<longrightarrow> y \<in> symbols_clause a" by (simp add: y8f)
+  hence "y \<in> symbols (update_query x False [a]) \<longrightarrow> y \<in> symbols [a]" using symbols_def by fastforce
+  hence "y \<in> symbols (update_query x False [a]) \<longrightarrow> y \<in> symbols (a # q)" using symbols_def by force
+  ultimately have "y \<in> symbols (update_query x False (a # q)) \<longrightarrow> y \<in> symbols (a # q)" using symbols_def by force
+  then show ?case by blast
+qed
+
+lemma y7: "x \<in> symbols q \<longrightarrow> x\<notin>symbols (update_query x True q)"
+  by (simp add: z0)
 
 lemma y1: "(x::symbol)\<in>(symbols (q::query)) \<longrightarrow> symbols (update_query x True q) < symbols q"
-  sorry
+  by (metis psubsetI subsetI y6 z0)
 
 lemma y2: "(x::symbol)\<in>(symbols (q::query)) \<longrightarrow> symbols (update_query x False q) < symbols q"
-  sorry
+  by (meson y4 y6f z0f)
+
 
 lemma x1:
   "(x::symbol)\<in>(symbols (q::query)) \<longrightarrow> ((simp_solve_measure (update_query x True q)) < (simp_solve_measure q))"
   by (simp add: psubset_card_mono simp_solve_measure_def y1 symbols_query_output_is_finite)
-  
+
 lemma x2:
   "(x::symbol)\<in>(symbols (q::query)) \<longrightarrow> ((simp_solve_measure (update_query x False q)) < (simp_solve_measure q))"
   by (simp add: psubset_card_mono simp_solve_measure_def y2 symbols_query_output_is_finite)
@@ -473,7 +646,8 @@ defer
 apply (meson in_measure x2 xb_in_q_implies_x_in_symbols_q)
 proof -
   have "\<And>q x21 x22 x21a x22a x y. q = (x21a # x22a) # x22 \<Longrightarrow> x21 = x21a # x22a \<Longrightarrow> (x, y) = x21a \<Longrightarrow> x\<in>symbols q" by (meson xb_in_q_implies_x_in_symbols_q)
-  hence "\<And>q x21 x22 x21a x22a x y. q = (x21a # x22a) # x22 \<Longrightarrow> x21 = x21a # x22a \<Longrightarrow> (x, y) = x21a \<Longrightarrow> simp_solve_measure (update_clause x True (x21a # x22a) @ update_query x True x22) < simp_solve_measure ((x21a # x22a) # x22)" by (metis inclusion_implies_cardinality simp_solve_measure_def update_query.simps(2) y1)
+  hence "\<And>q x21 x22 x21a x22a x y. q = (x21a # x22a) # x22 \<Longrightarrow> x21 = x21a # x22a \<Longrightarrow> (x, y) = x21a \<Longrightarrow> simp_solve_measure (update_clause x True (x21a # x22a) @ update_query x True x22) < simp_solve_measure ((x21a # x22a) # x22)"
+    using x1 by fastforce
   then show "\<And>q x21 x22 x21a x22a x y. q = (x21a # x22a) # x22 \<Longrightarrow> x21 = x21a # x22a \<Longrightarrow> (x, y) = x21a \<Longrightarrow> simp_solve_measure (update_clause x True (x21a # x22a) @ update_query x True x22) < simp_solve_measure ((x21a # x22a) # x22)" by simp
 qed
 
