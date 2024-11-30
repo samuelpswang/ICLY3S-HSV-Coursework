@@ -662,10 +662,136 @@ definition domain :: "('a * 'b) list \<Rightarrow> 'a set"
 where
   "domain kvs = set (map fst kvs)"
 
+
+(* evaluate_update_query_helper helpers: case (x,b) in c *)
+
+lemma val_list_member_implies_domain: "(List.member \<rho> (x,b)) \<or> (List.member \<rho> (x,\<not>b)) \<longrightarrow> x \<in> domain \<rho>"
+proof -
+  {
+    assume "List.member \<rho> (x,b)"
+    hence "x \<in> domain \<rho>" by (metis domain_def fst_conv image_eqI in_set_member list.set_map)
+  }
+  moreover {
+    assume "List.member \<rho> (x,\<not>b)"
+    hence "x \<in> domain \<rho>" by (metis domain_def fst_conv image_eqI in_set_member list.set_map)
+  }
+  ultimately show "(List.member \<rho> (x,b)) \<or> (List.member \<rho> (x,\<not>b)) \<longrightarrow> x \<in> domain \<rho>" by blast
+qed
+
+lemma val_list_member_implies_domain_contra: "x \<notin> domain \<rho> \<longrightarrow> \<not>(List.member \<rho> (x,b)) \<and> \<not>(List.member \<rho> (x,\<not>b))"
+  by (metis val_list_member_implies_domain)
+
+lemma cla_list_member_implies_evaluate: "List.member c (x,b) \<and> List.member \<rho> (x,b) \<longrightarrow> evaluate_clause \<rho> c"
+proof
+  assume "List.member c (x,b) \<and> List.member \<rho> (x,b)"
+  hence "evaluate_clause \<rho> [(x,b)]" by (simp add: evaluate_clause_def)
+  hence "\<forall>(ch::clause) (ct::clause). evaluate_clause \<rho> (ch @ ((x,b) # ct))" by (simp add: evaluate_clause_def)
+  also have "\<exists>(ch::clause) (ct::clause). c = (ch @ ((x,b) # ct))"  by (meson \<open>List.member c (x, b) \<and> List.member \<rho> (x, b)\<close> member_def split_list)
+  hence "evaluate_clause \<rho> c" using calculation by force
+  then show "(List.member c (x,b) \<and> List.member \<rho> (x,b)) \<Longrightarrow> evaluate_clause \<rho> c" by blast
+qed
+
+(* evaluate_update_query_helper helpers: case (x,b) and (x,!b) both not in c *)
+
+lemma cla_not_list_member_implies_not_evaluate_singleton: "\<not>(List.member c (x,b)) \<longrightarrow> \<not>(evaluate_clause [(x,b)] c)"
+by (metis (no_types, opaque_lifting) Bex_set evaluate_clause_def in_set_member member_rec(1) member_rec(2))
+
+lemma cla_x_notin_cla_and_val_implies_can_add_to_val: "x \<notin> domain \<rho> \<and> \<not>List.member c (x,b) \<and> \<not>List.member c (x,\<not>b) \<longrightarrow> evaluate [c] \<rho> = evaluate [c] ((x,b) # \<rho>)"
+proof
+  assume "x \<notin> domain \<rho> \<and> \<not>List.member c (x,b) \<and> \<not>List.member c (x,\<not>b)"
+  hence "evaluate_clause [(x,b)] c = False" by (simp add: cla_not_list_member_implies_not_evaluate_singleton)
+  hence "evaluate [c] [(x,b)] = False" by (simp add: evaluate_def)
+  hence "evaluate [c] \<rho> = evaluate [c] ((x,b) # \<rho>)" by (metis (no_types, lifting) Bex_set evaluate_clause_def evaluate_def list_all_simps(1) list_all_simps(2) member_rec(1))
+  then show "x \<notin> domain \<rho> \<and> \<not> List.member c (x, b) \<and> \<not> List.member c (x, \<not> b) \<Longrightarrow> evaluate [c] \<rho> = evaluate [c] ((x, b) # \<rho>)" by blast
+qed
+
+(* evaluate_update_query_helper helpers: case only (x,!b) in c *)
+
+lemma cla_xnb_in_cla_implies_can_add_to_val: "x \<notin> domain \<rho> \<and> \<not>List.member c (x,b) \<and> List.member c (x,\<not>b) \<longrightarrow> evaluate (update_clause x b c) ((x,b) # \<rho>) = evaluate [c] ((x,b) # \<rho>)"
+  by (smt (z3) Bex_set Diff_iff cla_not_list_member_implies_not_evaluate_singleton evaluate_clause_def evaluate_def insert_iff list.set(1) list_all_simps(1) member_def member_rec(1) set_removeAll update_clause_def val_list_member_implies_domain)
+
+(* TODO: decide whether manual proof is required *)
+(* manual attempt at cla_xnb_in_cla_implies_can_add_to_val *)
+(* proof
+  assume "x \<notin> domain \<rho> \<and> \<not>List.member c (x,b) \<and> List.member c (x,\<not>b)"
+  hence "\<exists>c1 c2. (update_clause x b c)!0 = (c1 @ c2) \<and> c = (c1 @ ((x,\<not>b) # c2))" sorry
+  hence "evaluate (update_clause x b c) ((x,b) # \<rho>) = evaluate [c] ((x,b) # \<rho>)" by (metis Diff_iff \<open>x \<notin> domain \<rho> \<and> \<not> List.member c (x, b) \<and> List.member c (x, \<not> b)\<close> ay3 insert_iff member_def nth_Cons_0 set_removeAll update_clause_def)
+  then show "x \<notin> domain \<rho> \<and> \<not> List.member c (x, b) \<and> List.member c (x, \<not> b) \<Longrightarrow> evaluate (update_clause x b c) ((x, b) # \<rho>) = evaluate [c] ((x, b) # \<rho>)" by blast
+qed *)
+(* manual attempt helpers *)
+(* lemma ay2: "x \<notin> domain \<rho> \<and> \<not>List.member c (x,b) \<and> \<not>List.member c (x,\<not>b) \<longrightarrow> evaluate [c] ((x,b) # \<rho>) = evaluate [((x,\<not>b) # c)] ((x,b) # \<rho>)"
+  by (metis evaluate_clause_def evaluate_def list_all_simps(1) list_ex_simps(1) member_rec(1) prod.inject val_list_member_implies_domain)
+lemma ay3: "x \<notin> domain \<rho> \<and> \<not>List.member c (x,b) \<and> \<not>List.member c (x,\<not>b) \<and> c = c1 @ c2 \<longrightarrow> evaluate [c] ((x,b) # \<rho>) = evaluate [(c1 @ ((x,\<not>b) # c2))] ((x,b) # \<rho>)"
+  using ay2 evaluate_clause_def evaluate_def by fastforce *)
+
+(* Issac's attempt at cla_xnb_in_cla_implies_can_add_to_val *)
+(* proof -
+  obtain pp :: "(char list \<times> bool \<Rightarrow> bool) \<Rightarrow> (char list \<times> bool) list \<Rightarrow> char list \<times> bool" where
+    "\<forall>x0 x1. (\<exists>v2. v2 \<in> set x1 \<and> x0 v2) = (pp x0 x1 \<in> set x1 \<and> x0 (pp x0 x1))"
+    by moura
+  then have f1: "\<forall>ps p. ((\<forall>pa. pa \<notin> set ps \<or> \<not> p pa) \<or> list_ex p ps) \<and> (pp p ps \<in> set ps \<and> p (pp p ps) \<or> \<not> list_ex p ps)"
+    by (meson Bex_set)
+  then have f2: "((\<forall>p. p \<notin> set (removeAll (x, \<not> b) c) \<or> \<not> List.member ((x, b) # \<rho>) p) \<or> list_ex (List.member ((x, b) # \<rho>)) (removeAll (x, \<not> b) c)) \<and> (pp (List.member ((x, b) # \<rho>)) (removeAll (x, \<not> b) c) \<in> set (removeAll (x, \<not> b) c) \<and> List.member ((x, b) # \<rho>) (pp (List.member ((x, b) # \<rho>)) (removeAll (x, \<not> b) c)) \<or> \<not> list_ex (List.member ((x, b) # \<rho>)) (removeAll (x, \<not> b) c))"
+    by presburger
+  have f3: "((\<forall>p. p \<notin> set c \<or> \<not> List.member ((x, b) # \<rho>) p) \<or> list_ex (List.member ((x, b) # \<rho>)) c) \<and> (pp (List.member ((x, b) # \<rho>)) c \<in> set c \<and> List.member ((x, b) # \<rho>) (pp (List.member ((x, b) # \<rho>)) c) \<or> \<not> list_ex (List.member ((x, b) # \<rho>)) c)"
+    using f1 by presburger
+  have "\<forall>p. p \<notin> set [] \<or> \<not> List.member ((x, b) # \<rho>) p"
+    by simp
+  then show ?thesis
+    using f3 f2 by (metis (no_types) Diff_iff evaluate_clause_def evaluate_def insert_iff list.set(1) list_all_simps(1) member_rec(1) set_removeAll update_clause_def val_list_member_implies_domain)
+qed *)
+
+lemma cla_xnb_in_cla_implies_eq_evaluate: "x \<notin> domain \<rho> \<and> \<not>List.member c (x,b) \<and> List.member c (x,\<not>b) \<longrightarrow> evaluate (update_clause x b c) \<rho> = evaluate [c] ((x,b) # \<rho>)"
+proof
+  assume "x \<notin> domain \<rho> \<and> \<not>List.member c (x,b) \<and> List.member c (x,\<not>b)"
+  hence "\<not>List.member ((update_clause x b c)!0) (x,\<not>b)" by (simp add: member_def update_clause_def)
+  hence "evaluate (update_clause x b c) \<rho> = evaluate (update_clause x b c) ((x,b) # \<rho>)" by (metis Diff_iff \<open>x \<notin> domain \<rho> \<and> \<not> List.member c (x, b) \<and> List.member c (x, \<not> b)\<close> cla_x_notin_cla_and_val_implies_can_add_to_val in_set_member nth_Cons_0 set_removeAll update_clause_def)
+  also have "evaluate (update_clause x b c) ((x,b) # \<rho>) = evaluate [c] ((x,b) # \<rho>)" by (simp add: \<open>x \<notin> domain \<rho> \<and> \<not> List.member c (x, b) \<and> List.member c (x, \<not> b)\<close> cla_xnb_in_cla_implies_can_add_to_val)
+  ultimately have "evaluate (update_clause x b c) \<rho> = evaluate [c] ((x,b) # \<rho>)" by blast
+  then show "x \<notin> domain \<rho> \<and> \<not> List.member c (x, b) \<and> List.member c (x, \<not> b) \<Longrightarrow> evaluate (update_clause x b c) \<rho> = evaluate [c] ((x, b) # \<rho>)" by blast
+qed
+
+
+lemma evaluate_update_query_helper: "x \<notin> domain \<rho> \<longrightarrow> evaluate (update_clause x b c) \<rho> = evaluate [c] ((x, b) # \<rho>)"
+proof
+  assume "x \<notin> domain \<rho>"
+  hence *: "\<not>(List.member \<rho> (x,b)) \<and> \<not>(List.member \<rho> (x,\<not>b))" by (simp add: val_list_member_implies_domain_contra)
+  {
+    assume "List.member c (x,b)"
+    hence "(update_clause x b c) = []" by (simp add: update_clause_def)
+    hence "evaluate (update_clause x b c) \<rho>" by (simp add: evaluate_def)
+    also have "evaluate [c] ((x,b) # \<rho>)" using \<open>List.member c (x, b)\<close> cla_list_member_implies_evaluate evaluate_def in_set_member by fastforce
+    hence "evaluate (update_clause x b c) \<rho> = evaluate [c] ((x, b) # \<rho>)" using calculation by blast
+  }
+  moreover {
+    assume "\<not>List.member c (x,b)"
+    {
+      assume "List.member c (x,\<not>b)"
+      hence "evaluate (update_clause x b c) \<rho> = evaluate [c] ((x, b) # \<rho>)" by (simp add: \<open>\<not> List.member c (x, b)\<close> \<open>x \<notin> domain \<rho>\<close> cla_xnb_in_cla_implies_eq_evaluate)
+    }
+    moreover {
+      assume "\<not>List.member c (x,\<not>b)"
+      hence "update_clause x b c = [c]" by (simp add: \<open>\<not> List.member c (x, b)\<close> in_set_member update_clause_def)
+      hence "evaluate [c] \<rho> = evaluate [c] ((x,b) # \<rho>)" using \<open>\<not> List.member c (x, \<not> b)\<close> \<open>\<not> List.member c (x, b)\<close> \<open>x \<notin> domain \<rho>\<close> cla_x_notin_cla_and_val_implies_can_add_to_val by blast
+      hence "evaluate (update_clause x b c) \<rho> = evaluate [c] ((x, b) # \<rho>)" by (simp add: \<open>update_clause x b c = [c]\<close>)
+    }
+    hence "evaluate (update_clause x b c) \<rho> = evaluate [c] ((x, b) # \<rho>)" using calculation by blast
+  }
+  hence "evaluate (update_clause x b c) \<rho> = evaluate [c] ((x, b) # \<rho>)" using calculation by blast
+  then show "x \<notin> domain \<rho> \<Longrightarrow> evaluate (update_clause x b c) \<rho> = evaluate [c] ((x, b) # \<rho>)" by blast
+qed
+
 lemma evaluate_update_query: 
   assumes "x \<notin> domain \<rho>"
   shows "evaluate (update_query x b q) \<rho> = evaluate q ((x, b) # \<rho>)"
-  oops
+proof (induct q)
+  case Nil
+  then show ?case by (simp add: evaluate_def)
+next
+  case (Cons a q)
+  have "evaluate (update_clause x b a) \<rho> = evaluate [a] ((x,b) # \<rho>)" using assms evaluate_update_query_helper by auto
+  then show ?case using evaluate_def local.Cons by auto
+qed
 
 text \<open> If the simple SAT solver returns a valuation, then that 
   valuation really does make the query true. \<close>
