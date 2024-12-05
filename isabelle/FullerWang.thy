@@ -640,16 +640,12 @@ where
        | None \<Rightarrow> None)))"
 by pat_completeness auto
 termination
-apply (relation "measure simp_solve_measure")
-apply simp+
-defer
-apply (meson in_measure x2 xb_in_q_implies_x_in_symbols_q)
-proof -
-  have "\<And>q x21 x22 x21a x22a x y. q = (x21a # x22a) # x22 \<Longrightarrow> x21 = x21a # x22a \<Longrightarrow> (x, y) = x21a \<Longrightarrow> x\<in>symbols q" by (meson xb_in_q_implies_x_in_symbols_q)
-  hence "\<And>q x21 x22 x21a x22a x y. q = (x21a # x22a) # x22 \<Longrightarrow> x21 = x21a # x22a \<Longrightarrow> (x, y) = x21a \<Longrightarrow> simp_solve_measure (update_clause x True (x21a # x22a) @ update_query x True x22) < simp_solve_measure ((x21a # x22a) # x22)"
-    using x1 by fastforce
-  then show "\<And>q x21 x22 x21a x22a x y. q = (x21a # x22a) # x22 \<Longrightarrow> x21 = x21a # x22a \<Longrightarrow> (x, y) = x21a \<Longrightarrow> simp_solve_measure (update_clause x True (x21a # x22a) @ update_query x True x22) < simp_solve_measure ((x21a # x22a) # x22)" by simp
-qed
+  apply (relation "measure simp_solve_measure")
+  apply simp+
+  defer
+  apply (meson in_measure x2 xb_in_q_implies_x_in_symbols_q)
+  apply (meson xb_in_q_implies_x_in_symbols_q)
+  by (metis update_query.simps(2) x1 xb_in_q_implies_x_in_symbols_q)
 
 
 value "simp_solve q1"
@@ -793,11 +789,122 @@ next
   then show ?case using evaluate_def local.Cons by auto
 qed
 
+
+lemma qry_x_in_val_imples_x_in_qry: "simp_solve q = Some \<rho> \<Longrightarrow> \<forall>x. x \<in> domain \<rho> \<longrightarrow> x \<in> symbols q"
+proof (induct q arbitrary:\<rho> rule:simp_solve.induct)
+  case (1 q)
+  {
+    assume "q = []"
+    obtain \<rho>0 where "simp_solve q = Some \<rho>0" using "1.prems" by blast
+    hence "\<rho>0 = []" by (simp add: \<open>q = []\<close>)
+    hence "\<forall>x. x \<in> domain \<rho> \<longrightarrow> x \<in> symbols q" by (metis "1.prems" \<open>simp_solve q = Some \<rho>0\<close> domain_def empty_iff list.map_disc_iff list.set(1) option.inject)
+  }
+  moreover {
+    assume "q \<noteq> []"
+    {
+      assume "q!0 = []"
+      hence "simp_solve q = None" by (metis (no_types, lifting) \<open>q \<noteq> []\<close> list.exhaust list.simps(4) list.simps(5) nth_Cons_0 simp_solve.simps)
+      hence "\<forall>x. x \<in> domain \<rho> \<longrightarrow> x \<in> symbols q" using "1.prems" by auto
+    }
+    moreover {
+      assume "q!0 \<noteq> []"
+      obtain x1 b1 c1 q1 where "q = (((x1, b1) # c1) # q1)" by (metis \<open>q ! 0 \<noteq> []\<close> \<open>q \<noteq> []\<close> list.exhaust nth_Cons_0 symbol_of_literal.elims)
+      {
+        assume "simp_solve (update_query x1 True q) \<noteq> None"
+        obtain \<rho>1 where "simp_solve (update_query x1 True q) = Some \<rho>1" using \<open>simp_solve (update_query x1 True q) \<noteq> None\<close> by blast
+        hence "\<rho> = (x1, True) # \<rho>1" using "1.prems" \<open>q = ((x1, b1) # c1) # q1\<close> by auto
+        also have "\<forall>x. x \<in> domain \<rho>1 \<longrightarrow> x \<in> symbols (update_query x1 True q)" using "1.hyps"(1) \<open>q = ((x1, b1) # c1) # q1\<close> \<open>simp_solve (update_query x1 True q) = Some \<rho>1\<close> by blast
+        hence "\<forall>x. x \<in> domain \<rho> \<longrightarrow> x = x1 \<or> x \<in> domain \<rho>1" by (simp add: calculation domain_def)
+        hence "\<forall>x. x \<in> domain \<rho> \<longrightarrow> x = x1 \<or> x \<in> symbols (update_query x1 True q)" using \<open>\<forall>x. x \<in> domain \<rho>1 \<longrightarrow> x \<in> symbols (update_query x1 True q)\<close> by auto
+        hence "\<forall>x. x \<in> domain \<rho> \<longrightarrow> x \<in> symbols q" by (metis \<open>q = ((x1, b1) # c1) # q1\<close> xb_in_q_implies_x_in_symbols_q y6)
+      }
+      moreover {
+        assume "simp_solve (update_query x1 True q) = None"
+        {
+          assume "simp_solve (update_query x1 False q) \<noteq> None"
+          obtain \<rho>1 where "simp_solve (update_query x1 False q) = Some \<rho>1" using \<open>simp_solve (update_query x1 False q) \<noteq> None\<close> by blast
+          hence "\<rho> = (x1, False) # \<rho>1" using "1.prems" \<open>q = ((x1, b1) # c1) # q1\<close> \<open>simp_solve (update_query x1 True q) = None\<close> by auto
+          also have "\<forall>x. x \<in> domain \<rho>1 \<longrightarrow> x \<in> symbols (update_query x1 False q)" by (meson "1.hyps"(2) \<open>q = ((x1, b1) # c1) # q1\<close> \<open>simp_solve (update_query x1 False q) = Some \<rho>1\<close> \<open>simp_solve (update_query x1 True q) = None\<close>)
+          hence "\<forall>x. x \<in> domain \<rho> \<longrightarrow> x = x1 \<or> x \<in> domain \<rho>1" by (simp add: calculation domain_def)
+          hence "\<forall>x. x \<in> domain \<rho> \<longrightarrow> x = x1 \<or> x \<in> symbols (update_query x1 False q)" using \<open>\<forall>x. x \<in> domain \<rho>1 \<longrightarrow> x \<in> symbols (update_query x1 False q)\<close> by blast
+          hence "\<forall>x. x \<in> domain \<rho> \<longrightarrow> x \<in> symbols q" by (metis \<open>q = ((x1, b1) # c1) # q1\<close> xb_in_q_implies_x_in_symbols_q y6f)
+        }
+        moreover {
+          assume "simp_solve (update_query x1 False q) = None"
+          hence "simp_solve q = None" using \<open>q = ((x1, b1) # c1) # q1\<close> \<open>simp_solve (update_query x1 True q) = None\<close> by auto
+          hence "\<forall>x. x \<in> domain \<rho> \<longrightarrow> x \<in> symbols q" using "1.prems" by auto
+        }
+        hence "\<forall>x. x \<in> domain \<rho> \<longrightarrow> x \<in> symbols q" using calculation by blast
+      }
+      hence "\<forall>x. x \<in> domain \<rho> \<longrightarrow> x \<in> symbols q" using calculation by blast
+    }
+    hence "\<forall>x. x \<in> domain \<rho> \<longrightarrow> x \<in> symbols q" using calculation by blast
+  }
+  then show ?case using calculation by blast
+qed
+
+lemma qry_x_in_val_imples_x_in_qry_ctra: "simp_solve q = Some \<rho> \<longrightarrow> x \<notin> symbols q \<longrightarrow> x \<notin> domain \<rho>"
+  using qry_x_in_val_imples_x_in_qry by blast
+
 text \<open> If the simple SAT solver returns a valuation, then that 
   valuation really does make the query true. \<close>
 theorem simp_solve_sat_correct:
   "simp_solve q = Some \<rho> \<Longrightarrow> evaluate q \<rho>"
-  oops
+proof (induct q arbitrary:\<rho> rule:simp_solve.induct)
+  case (1 q)
+  assume "simp_solve q = Some \<rho>"
+  {
+    assume "q = []"
+    hence "evaluate q \<rho>" by (simp add: evaluate_def)
+  }
+  moreover {
+    assume "q \<noteq> []"
+    {
+      assume "q!0 = []"
+      hence "simp_solve q = None" by (metis (no_types, lifting) \<open>q \<noteq> []\<close> list.exhaust list.simps(4) list.simps(5) nth_Cons_0 simp_solve.simps)
+      hence "evaluate q \<rho>" using "1.prems" by auto
+    }
+    moreover {
+      assume "q!0 \<noteq> []"
+      obtain x1 b1 c1 q1 where "q = (((x1, b1) # c1) # q1)" by (metis \<open>q ! 0 \<noteq> []\<close> \<open>q \<noteq> []\<close> eq_fst_iff nth_Cons_0 transpose.cases)
+      {
+        assume "simp_solve (update_query x1 True q) \<noteq> None"
+        obtain \<rho>1 where "simp_solve (update_query x1 True q) = Some \<rho>1" using \<open>simp_solve (update_query x1 True q) \<noteq> None\<close> by blast
+        hence "\<rho> = (x1, True) # \<rho>1" using "1.prems" \<open>q = ((x1, b1) # c1) # q1\<close> by auto
+        also have "evaluate (update_query x1 True q) \<rho>1" using "1.hyps"(1) \<open>q = ((x1, b1) # c1) # q1\<close> \<open>simp_solve (update_query x1 True q) = Some \<rho>1\<close> by blast
+        hence "evaluate q ((x1, True) # \<rho>1)" using \<open>simp_solve (update_query x1 True q) = Some \<rho>1\<close> evaluate_update_query qry_x_in_val_imples_x_in_qry_ctra z0 by blast
+        hence "evaluate q \<rho>" using calculation by blast
+      }
+      moreover {
+        assume "simp_solve (update_query x1 True q) = None"
+        {
+          assume "simp_solve (update_query x1 False q) \<noteq> None"
+          obtain \<rho>1 where "simp_solve (update_query x1 False q) = Some \<rho>1" using \<open>simp_solve (update_query x1 False q) \<noteq> None\<close> by blast
+          hence "\<rho> = (x1, False) # \<rho>1" using "1.prems" \<open>q = ((x1, b1) # c1) # q1\<close> \<open>simp_solve (update_query x1 True q) = None\<close> by auto
+          also have "evaluate (update_query x1 False q) \<rho>1" using "1.hyps"(2) \<open>q = ((x1, b1) # c1) # q1\<close> \<open>simp_solve (update_query x1 False q) = Some \<rho>1\<close> \<open>simp_solve (update_query x1 True q) = None\<close> by blast
+          hence "evaluate q ((x1, False) # \<rho>1)" using \<open>simp_solve (update_query x1 False q) = Some \<rho>1\<close> evaluate_update_query qry_x_in_val_imples_x_in_qry z0f by blast
+          hence "evaluate q \<rho>" using calculation by auto
+        }
+        moreover {
+          assume "simp_solve (update_query x1 False q) = None"
+          hence "simp_solve q = None" using \<open>q = ((x1, b1) # c1) # q1\<close> \<open>simp_solve (update_query x1 True q) = None\<close> by auto
+          hence "evaluate q \<rho>" using "1.prems" by force
+        }
+        hence "evaluate q \<rho>" using calculation by blast
+      }
+      hence "evaluate q \<rho>" using calculation by blast
+    }
+    hence "evaluate q \<rho>" using calculation by blast
+  }
+  then show ?case using calculation by blast
+qed
+
+
+lemma val_x_in_domain_implies_xb_or_xnb_in_val: "\<forall>\<rho>. (wf_valuation \<rho>) \<and> (x \<in> domain \<rho>) \<longrightarrow> (List.member \<rho> (x,True)) \<or> (List.member \<rho> (x,False))"
+  by (smt (verit, best) domain_def eq_fst_iff imageE list.set_map member_def)
+
+lemma val_possible_x_val_relations: "\<forall>\<rho>. (wf_valuation \<rho>) \<longrightarrow> (List.member \<rho> (x,True)) \<or> (List.member \<rho> (x,False)) \<or> (x \<notin> domain \<rho>)"
+  by (meson val_x_in_domain_implies_xb_or_xnb_in_val)
 
 text \<open> A valuation is deemed well-formed (wf) as long as it does
   not assign a truth-value for the same symbol more than once. \<close>
@@ -808,8 +915,10 @@ text \<open> If the simple SAT solver returns no valuation, then
   there exists no well-formed valuation that can make the 
   query evaluate to true. \<close>
 theorem simp_solve_unsat_correct:
-  "simp_solve q = None \<Longrightarrow> 
-   (\<forall>\<rho>. wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>)"
-  oops
+  "simp_solve q = None \<Longrightarrow> (\<forall>\<rho>. wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>)"
+proof (induct q arbitrary:\<rho> rule:simp_solve.induct)
+  case (1 q)
+  then show ?case sorry
+qed
 
 end
