@@ -705,21 +705,6 @@ qed
 
 lemma cla_xnb_in_cla_implies_can_add_to_val: "x \<notin> domain \<rho> \<and> \<not>List.member c (x,b) \<and> List.member c (x,\<not>b) \<longrightarrow> evaluate (update_clause x b c) ((x,b) # \<rho>) = evaluate [c] ((x,b) # \<rho>)"
   by (smt (z3) Bex_set Diff_iff cla_not_list_member_implies_not_evaluate_singleton evaluate_clause_def evaluate_def insert_iff list.set(1) list_all_simps(1) member_def member_rec(1) set_removeAll update_clause_def val_list_member_implies_domain)
-
-(* TODO: decide whether manual proof is required *)
-(* manual attempt at cla_xnb_in_cla_implies_can_add_to_val *)
-(* proof
-  assume "x \<notin> domain \<rho> \<and> \<not>List.member c (x,b) \<and> List.member c (x,\<not>b)"
-  hence "\<exists>c1 c2. (update_clause x b c)!0 = (c1 @ c2) \<and> c = (c1 @ ((x,\<not>b) # c2))" sorry
-  hence "evaluate (update_clause x b c) ((x,b) # \<rho>) = evaluate [c] ((x,b) # \<rho>)" by (metis Diff_iff \<open>x \<notin> domain \<rho> \<and> \<not> List.member c (x, b) \<and> List.member c (x, \<not> b)\<close> ay3 insert_iff member_def nth_Cons_0 set_removeAll update_clause_def)
-  then show "x \<notin> domain \<rho> \<and> \<not> List.member c (x, b) \<and> List.member c (x, \<not> b) \<Longrightarrow> evaluate (update_clause x b c) ((x, b) # \<rho>) = evaluate [c] ((x, b) # \<rho>)" by blast
-qed *)
-(* manual attempt helpers *)
-(* lemma ay2: "x \<notin> domain \<rho> \<and> \<not>List.member c (x,b) \<and> \<not>List.member c (x,\<not>b) \<longrightarrow> evaluate [c] ((x,b) # \<rho>) = evaluate [((x,\<not>b) # c)] ((x,b) # \<rho>)"
-  by (metis evaluate_clause_def evaluate_def list_all_simps(1) list_ex_simps(1) member_rec(1) prod.inject val_list_member_implies_domain)
-lemma ay3: "x \<notin> domain \<rho> \<and> \<not>List.member c (x,b) \<and> \<not>List.member c (x,\<not>b) \<and> c = c1 @ c2 \<longrightarrow> evaluate [c] ((x,b) # \<rho>) = evaluate [(c1 @ ((x,\<not>b) # c2))] ((x,b) # \<rho>)"
-  using ay2 evaluate_clause_def evaluate_def by fastforce *)
-
 (* Issac's attempt at cla_xnb_in_cla_implies_can_add_to_val *)
 (* proof -
   obtain pp :: "(char list \<times> bool \<Rightarrow> bool) \<Rightarrow> (char list \<times> bool) list \<Rightarrow> char list \<times> bool" where
@@ -899,6 +884,10 @@ proof (induct q arbitrary:\<rho> rule:simp_solve.induct)
   then show ?case using calculation by blast
 qed
 
+text \<open> A valuation is deemed well-formed (wf) as long as it does
+  not assign a truth-value for the same symbol more than once. \<close>
+definition wf_valuation where
+  "wf_valuation \<rho> = distinct (map fst \<rho>)"
 
 lemma val_x_in_domain_implies_xb_or_xnb_in_val: "\<forall>\<rho>. (wf_valuation \<rho>) \<and> (x \<in> domain \<rho>) \<longrightarrow> (List.member \<rho> (x,True)) \<or> (List.member \<rho> (x,False))"
   by (smt (verit, best) domain_def eq_fst_iff imageE list.set_map member_def)
@@ -906,10 +895,40 @@ lemma val_x_in_domain_implies_xb_or_xnb_in_val: "\<forall>\<rho>. (wf_valuation 
 lemma val_possible_x_val_relations: "\<forall>\<rho>. (wf_valuation \<rho>) \<longrightarrow> (List.member \<rho> (x,True)) \<or> (List.member \<rho> (x,False)) \<or> (x \<notin> domain \<rho>)"
   by (meson val_x_in_domain_implies_xb_or_xnb_in_val)
 
-text \<open> A valuation is deemed well-formed (wf) as long as it does
-  not assign a truth-value for the same symbol more than once. \<close>
-definition wf_valuation where
-  "wf_valuation \<rho> = distinct (map fst \<rho>)"
+lemma val_wf_implies_xb_in_implies_xnb_not_in: "\<forall>x \<rho> b. wf_valuation \<rho> \<longrightarrow> x \<in> domain \<rho> \<longrightarrow> List.member \<rho> (x,b) \<longrightarrow> \<not>List.member \<rho> (x,\<not>b)"
+  by (metis eq_key_imp_eq_value in_set_member wf_valuation_def)
+
+lemma val_wf_implies_xb_in_and_xnb_not_in: "\<forall>x \<rho> b. wf_valuation \<rho> \<longrightarrow> x \<in> domain \<rho> \<longrightarrow> ((List.member \<rho> (x,b) \<and> \<not>List.member \<rho> (x,\<not>b)) \<or> (List.member \<rho> (x,\<not>b) \<and> \<not>List.member \<rho> (x,b)))"
+  by (smt (verit, del_insts) val_wf_implies_xb_in_implies_xnb_not_in val_possible_x_val_relations)
+
+lemma val_wf_implies_xb_removed_wf: "wf_valuation \<rho> \<longrightarrow> wf_valuation (List.removeAll (x,b) \<rho>)"
+proof
+  assume "wf_valuation \<rho>"
+  obtain \<rho>' where "\<rho>' = (List.removeAll (x,b) \<rho>)" by simp
+  hence "\<forall>p'. List.member \<rho>' p' \<longrightarrow> List.member \<rho> p'" by (simp add: member_def)
+  hence "\<forall>x'. List.member (map fst \<rho>') x' \<longrightarrow> List.member (map fst \<rho>) x'" by (metis DomainE \<open>wf_valuation \<rho>\<close> dom_map_of_conv_image_fst fst_conv fst_eq_Domain graph_domD image_set in_graphI in_set_member map_of_eq_Some_iff wf_valuation_def)
+  hence "distinct (map fst \<rho>')" by (metis \<open>\<rho>' = removeAll (x, b) \<rho>\<close> \<open>wf_valuation \<rho>\<close> distinct_map_filter removeAll_filter_not_eq wf_valuation_def)
+  hence "wf_valuation \<rho>'" using wf_valuation_def by blast
+  then show "wf_valuation \<rho> \<Longrightarrow> wf_valuation (removeAll (x, b) \<rho>)" using \<open>\<rho>' = removeAll (x, b) \<rho>\<close> by blast
+qed
+
+lemma val_wf_and_xb_in_implies_x_not_in_domain_xb_removed: "wf_valuation (\<rho>::valuation) \<and> List.member \<rho> ((x::symbol),(b::bool)) \<longrightarrow> x \<notin> domain (List.removeAll (x,b) \<rho>)"
+proof
+  assume "wf_valuation \<rho> \<and> List.member \<rho> (x,b)"
+  obtain \<rho>' where "\<rho>' = (List.removeAll (x,b) \<rho>)" by simp
+  have "x \<in> domain \<rho>" by (metis \<open>wf_valuation \<rho> \<and> List.member \<rho> (x, b)\<close> domain_def in_set_member in_set_zipE zip_map_fst_snd)
+  hence "\<not>List.member \<rho> (x,\<not>b)" by (simp add: \<open>wf_valuation \<rho> \<and> List.member \<rho> (x, b)\<close> val_wf_implies_xb_in_implies_xnb_not_in)
+  hence "\<not>List.member \<rho>' (x,\<not>b)" by (metis Diff_iff \<open>\<rho>' = removeAll (x, b) \<rho>\<close> in_set_member set_removeAll)
+  also have "\<not>List.member \<rho>' (x,b)" by (simp add: \<open>\<rho>' = removeAll (x, b) \<rho>\<close> member_def)
+  hence f1: "\<not>List.member \<rho>' (x,\<not>b) \<and> \<not>List.member \<rho>' (x,b)" using calculation by blast
+
+  have f2: "wf_valuation \<rho>'" by (simp add: \<open>\<rho>' = removeAll (x, b) \<rho>\<close> \<open>wf_valuation \<rho> \<and> List.member \<rho> (x, b)\<close> val_wf_implies_xb_removed_wf)
+  hence "x \<notin> domain \<rho>'" using f1 f2 by (metis (full_types) val_possible_x_val_relations)
+  then show "wf_valuation \<rho> \<and> List.member \<rho> (x, b) \<Longrightarrow> x \<notin> domain (removeAll (x, b) \<rho>)" by (simp add: \<open>\<rho>' = removeAll (x, b) \<rho>\<close>)
+qed
+
+lemma val_wf_and_xb_in_implies_eval_eq_if_rm_and_added_back: "List.member \<rho> (x,b) \<and> wf_valuation \<rho> \<longrightarrow> (evaluate q ((x,b) # (List.removeAll (x,b) \<rho>)) = evaluate q \<rho>)"
+  by (smt (z3) Bex_set Diff_iff evaluate_clause_def evaluate_def insert_iff list.pred_set list.set(1) list_ex_simps(2) member_def member_rec(1) set_removeAll)
 
 text \<open> If the simple SAT solver returns no valuation, then 
   there exists no well-formed valuation that can make the 
@@ -918,7 +937,60 @@ theorem simp_solve_unsat_correct:
   "simp_solve q = None \<Longrightarrow> (\<forall>\<rho>. wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>)"
 proof (induct q arbitrary:\<rho> rule:simp_solve.induct)
   case (1 q)
-  then show ?case sorry
+  assume "simp_solve q = None"
+  {
+    assume "q = []"
+    hence "\<forall>\<rho>. wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>" using "1.prems" by auto
+  }
+  moreover {
+    assume "q \<noteq> []"
+    {
+      assume "q!0 = []"
+      hence "\<forall>\<rho>. wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>" by (metis \<open>q \<noteq> []\<close> evaluate_clause_def evaluate_def length_0_conv list.pred_set list_ex_simps(2) neq0_conv nth_mem)
+    }
+    moreover {
+      assume "q!0 \<noteq> []"
+      obtain x1 b1 c1 q1 where "q = (((x1, b1) # c1) # q1)" by (metis \<open>q ! 0 \<noteq> []\<close> \<open>q \<noteq> []\<close> eq_fst_iff nth_Cons_0 transpose.cases)
+      {
+        assume "simp_solve (update_query x1 True q) \<noteq> None"
+        obtain \<rho>1 where "simp_solve (update_query x1 True q) = Some \<rho>1" using \<open>simp_solve (update_query x1 True q) \<noteq> None\<close> by blast
+        hence "simp_solve q = Some ((x1,True) # \<rho>1)" using \<open>q = ((x1, b1) # c1) # q1\<close> by auto
+        hence "simp_solve q \<noteq> None" by blast
+        hence "\<forall>\<rho>. wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>" using "1.prems" by blast
+      }
+      moreover {
+        assume "simp_solve (update_query x1 True q) = None"
+        {
+          assume "simp_solve (update_query x1 False q) \<noteq> None"
+          hence "simp_solve q \<noteq> None" by (metis (no_types, lifting) \<open>q = ((x1, b1) # c1) # q1\<close> list.simps(5) option.case_eq_if option.simps(3) prod.simps(2) simp_solve.simps)
+          hence "\<forall>\<rho>. wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>" using "1.prems" by auto
+        }
+        moreover {
+          assume "simp_solve (update_query x1 False q) = None"
+          have f1: "\<forall>\<rho>. wf_valuation \<rho> \<longrightarrow> \<not> evaluate (update_query x1 True q) \<rho>" using "1.hyps"(1) \<open>q = ((x1, b1) # c1) # q1\<close> \<open>simp_solve (update_query x1 True q) = None\<close> by blast
+          have f2: "\<forall>\<rho>. wf_valuation \<rho> \<longrightarrow> \<not> evaluate (update_query x1 False q) \<rho>" using "1.hyps"(2) \<open>q = ((x1, b1) # c1) # q1\<close> \<open>simp_solve (update_query x1 False q) = None\<close> \<open>simp_solve (update_query x1 True q) = None\<close> by blast
+
+          have f3:  "\<forall>\<rho>. x1 \<notin> domain \<rho> \<and> wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>" by (smt (verit, ccfv_threshold) Bex_set evaluate_clause_def evaluate_def evaluate_update_query f1 list.pred_set member_rec(1))
+
+          have "\<forall>\<rho>. x1 \<in> domain \<rho> \<and> List.member \<rho> (x1,True) \<and> wf_valuation \<rho> \<longrightarrow> \<not> evaluate (update_query x1 True q) (List.removeAll (x1,True) \<rho>)" using f1 by (smt (verit, del_insts) Bex_set Diff_iff evaluate_clause_def evaluate_def in_set_member list.pred_set set_removeAll)
+          hence "\<forall>\<rho>. x1 \<in> domain \<rho> \<and> List.member \<rho> (x1,True) \<and> wf_valuation \<rho> \<longrightarrow> \<not> evaluate q ((x1,True) # (List.removeAll (x1,True) \<rho>))" by (simp add: val_wf_and_xb_in_implies_x_not_in_domain_xb_removed evaluate_update_query)
+          hence f5: "\<forall>\<rho>. x1 \<in> domain \<rho> \<and> List.member \<rho> (x1,True) \<and> wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>" using val_wf_and_xb_in_implies_eval_eq_if_rm_and_added_back by blast
+
+          have "\<forall>\<rho>. x1 \<in> domain \<rho> \<and> List.member \<rho> (x1,False) \<and> wf_valuation \<rho> \<longrightarrow> \<not> evaluate (update_query x1 False q) (List.removeAll (x1,False) \<rho>)" using f2 by (smt (verit, del_insts) Bex_set Diff_iff evaluate_clause_def evaluate_def in_set_member list.pred_set set_removeAll)
+          hence "\<forall>\<rho>. x1 \<in> domain \<rho> \<and> List.member \<rho> (x1,False) \<and> wf_valuation \<rho> \<longrightarrow> \<not> evaluate q ((x1,False) # (List.removeAll (x1,False) \<rho>))" by (simp add: val_wf_and_xb_in_implies_x_not_in_domain_xb_removed evaluate_update_query)
+          hence f6: "\<forall>\<rho>. x1 \<in> domain \<rho> \<and> List.member \<rho> (x1,False) \<and> wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>" using val_wf_and_xb_in_implies_eval_eq_if_rm_and_added_back by blast
+        
+          have f4:  "\<forall>\<rho>. x1 \<in> domain \<rho> \<and> wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>" by (metis f5 f6 val_possible_x_val_relations)
+          
+          have "\<forall>\<rho>. wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>" using f3 f4 by blast
+        } 
+        hence "\<forall>\<rho>. wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>" using calculation by blast
+      } 
+      hence "\<forall>\<rho>. wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>" using calculation by blast
+    }
+    hence "\<forall>\<rho>. wf_valuation \<rho> \<longrightarrow> \<not> evaluate q \<rho>" using calculation by blast
+  } 
+  then show ?case using calculation by blast
 qed
 
 end
