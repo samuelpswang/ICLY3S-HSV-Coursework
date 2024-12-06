@@ -1,6 +1,16 @@
+[tasks]
+prove prove_task
+cover cover_task
+all prove_task cover_task
+
 [options]
+prove_task:
 mode prove
 depth 20
+cover_task:
+mode cover
+depth 20
+--
 
 [engines]
 smtbmc
