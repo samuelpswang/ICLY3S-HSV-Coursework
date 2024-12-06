@@ -20,7 +20,7 @@ ensures (forall x :: (x in symbols_clause(c)) ==> (exists b :: (x,b) in c))
 }
 
 // extracts the set of symbols from a given query
-function  symbols(q:query) : set<symbol>
+function symbols(q:query) : set<symbol>
   ensures forall x :: x in symbols(q) <==> (exists i :: 0 <= i < |q| && x in symbols_clause(q[i]))
   ensures forall x :: x in symbols(q) <==> (exists c :: c in q && x in symbols_clause(c))
 {
@@ -278,6 +278,26 @@ function update_clause (x:symbol, b:bool, c:clause) : query
   if ((x,b) in c) then [] else [remove_symbols_clause(c,{x})]
 }
 
+// This function updates a query under the valuation x:=b. It
+// invokes update_clause on each clause in turn.
+function update_query(x:symbol, b:bool, q:query) : query
+  ensures x !in symbols(update_query(x, b, q))
+  ensures symbols(update_query(x, b, q)) <= symbols(q)
+{
+  if q == [] then [] else
+    var q_new := update_clause(x,b,q[0]);
+    var q' := update_query(x,b,q[1..]);
+    excl_sym_in_q_is_additive(q_new, q', x);
+
+    assert symbols(q_new) <= symbols(q);
+    assert symbols(q') <= symbols(q[1..]);
+    assert symbols(q_new) + symbols(q') <= symbols(q);
+    assert symbols(q_new+q') == symbols(q_new) + symbols(q') <= symbols(q);
+
+    q_new + q'
+}
+
+// BEGIN: Helper lemmas for evaluate_update_query and simp_solve
 lemma excl_sym_in_c_eq_excl_sym_in_q(x:symbol, q:query)
   requires forall c :: c in q ==> x !in symbols_clause(c)
   ensures x !in symbols(q)
@@ -299,101 +319,10 @@ lemma excl_sym_in_q_is_additive(q1:query, q2:query, x:symbol)
   excl_sym_in_c_eq_excl_sym_in_q(x, q1+q2);
 }
 
-// This function updates a query under the valuation x:=b. It
-// invokes update_clause on each clause in turn.
-// lemma uz(x:symbol, b:bool, q:query, q_new:query, q':query)
-//   requires |q| > 0
-//   requires q_new == update_clause(x,b,q[0])
-//   requires q' == update_query(x,b,q[1..])
-//   ensures x in symbols(q) ==> symbols(q_new+q') < symbols(q)
-// {
-//   requires |q| > 0
-//   requires q_new == update_clause(x,b,q[0])
-//   requires q' == update_query(x,b,q[1..])
-//   ensures x in symbols(q) ==> symbols(q_new+q') < symbols(q)
-// {
-//   assert x in symbols(q) ==> (x in symbols([q[0]])) || (x in symbols(q[1..]));
-//   if x in symbols([q[0]]) {
-//     if x in symbols(q[1..]) {
-//       assert symbols(q_new) + symbols(q') < symbols(q);
-//     } else {
-//       assert symbols(q_new) + symbols(q') < symbols(q);
-//     }
-//   }
-//   else {
-//     if x in symbols(q[1..]) {
-//       assert symbols(q_new) + symbols(q') < symbols(q);
-//     } else {
-//       assert x !in symbols(q);
-//     }
-//   }
-//   assert x in symbols(q) ==> symbols(q_new+q') < symbols(q);
-// }
-
-lemma ux1(c1:clause, c2:clause)
-  ensures symbols_clause(c1) + symbols_clause(c2) == symbols([c1+c2])
-{}
-
-lemma uy(s1:set<symbol>, s2:set<symbol>, s3:set<symbol>)
-  requires forall x :: x in s1 ==> x in s3
-  requires forall x :: x in s2 ==> x in s3
-  ensures s1 + s2 <= s3
-{
-  assert s1 <= s3;
-  assert s2 <= s3;
-}
-
-lemma  ux(q1:query, q2:query)
+lemma  subset_query_concat_symbols(q1:query, q2:query)
   ensures symbols(q1) + symbols(q2) <= symbols(q1+q2)
 {}
 
-function update_query(x:symbol, b:bool, q:query) : query
-  ensures x !in symbols(update_query(x, b, q))
-  ensures symbols(update_query(x, b, q)) <= symbols(q)
-{
-  if q == [] then [] else
-    var q_new := update_clause(x,b,q[0]);
-    var q' := update_query(x,b,q[1..]);
-    excl_sym_in_q_is_additive(q_new, q', x);
-
-    assert symbols(q_new) <= symbols(q);
-    assert symbols(q') <= symbols(q[1..]);
-    assert symbols(q_new) + symbols(q') <= symbols(q);
-    assert symbols(q_new+q') == symbols(q_new) + symbols(q') <= symbols(q);
-
-    q_new + q'
-}
-
-// lemma  uz(x:symbol, b:bool, q:query) 
-//   requires |q| > 0
-//   requires x in symbols(q)
-//   ensures |symbols(update_query(x, b, q))| < |symbols(q)|
-// {
-//   var q' := update_query(x, b, q);
-  
-  
-
-//   // var q_new := update_clause(x,b,q[0]);
-//   // var q' := update_query(x,b,q[1..]);
-  
-//   // if x in symbols_clause(q[0]) {
-//   //   if x in symbols(q[1..]) {
-//   //     // assert symbols(q_new) < symbols(q);
-//   //     // assert symbols(q') <= symbols(q[1..]) <= symbols(q);
-//   //     // assert symbols(q_new) + symbols(q') < symbols(q);
-//   //   } else {
-
-//   //   }
-//   // } else {
-//   //   if x in symbols(q[1..]) {
-
-//   //   }
-//   // }
-//   // assert symbols(q_new) + symbols(q') < symbols(q);
-// }
-
-// Updating a query under the valuation x:=b is the same as updating 
-// the valuation itself and leaving the query unchanged.
 lemma evaluate_is_conjunctive_by_and(q1:query, q2:query, r:valuation)
   ensures evaluate(q1+q2, r) == (evaluate(q1,r) && evaluate(q2,r))
 {
@@ -563,39 +492,6 @@ lemma if_xb_nin_c_and_xnb_nin_c(x:symbol, b:bool, r:valuation, c:clause)
   assert update_clause(x, b, c)[0] == c;
 }
 
-lemma evaluate_update_query(x:symbol, b:bool, r:valuation, q:query)
-  requires x !in r.Keys
-  ensures evaluate(update_query(x,b,q), r) == evaluate(q, r[x:=b])
-{
-  evaluate_query_is_evaluate_clause(x, b, r[x := b], q);
-  evalute_update_query_is_evaluate_udpate_clause(x, b, r, q);
-  forall c | c in q
-    ensures evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r)
-  {
-    if (x,b) in c {
-      assert evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
-    } else {
-      if (x,!b) in c {
-        if_xb_in_c_and_xnb_in_c(x, b, c, r);
-        assert evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
-      } else {
-        if_xb_nin_c_and_xnb_nin_c(x, b, r, c);
-        assert evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
-      }
-      assert evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
-    }
-  }
-  assert forall c :: c in q ==> evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
-  assert (forall c :: c in q ==> evaluate_clause(c, r[x:=b])) == (forall c :: c in q ==> evaluate(update_clause(x, b, c), r));
-}
-
-// A simple SAT solver. Given a query, it does a three-way case split. If
-// the query has no clauses then it is trivially satisfiable (with the
-// empty valuation). If the first clause in the query is empty, then the
-// query is unsatisfiable. Otherwise, it considers the first symbol that 
-// appears in the query, and makes two recursive solving attempts: one 
-// with that symbol evaluated to true, and one with it evaluated to false.
-// If neither recursive attempt succeeds, the query is unsatisfiable.
 lemma x_in_r_keys(x:symbol,r:valuation)
   requires x in r.Keys
   ensures ((x,true) in r.Items || (x, false) in r.Items)
@@ -655,7 +551,43 @@ lemma imp_xf_in_r(x:symbol, q:query, r:valuation)
   assert !evaluate(q,r'[x:=false]);
   assert !evaluate(q,r);
 }
+// END: Helper lemmas for evaluate_update_query and simp_solve
 
+// Updating a query under the valuation x:=b is the same as updating 
+// the valuation itself and leaving the query unchanged.
+lemma evaluate_update_query(x:symbol, b:bool, r:valuation, q:query)
+  requires x !in r.Keys
+  ensures evaluate(update_query(x,b,q), r) == evaluate(q, r[x:=b])
+{
+  evaluate_query_is_evaluate_clause(x, b, r[x := b], q);
+  evalute_update_query_is_evaluate_udpate_clause(x, b, r, q);
+  forall c | c in q
+    ensures evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r)
+  {
+    if (x,b) in c {
+      assert evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
+    } else {
+      if (x,!b) in c {
+        if_xb_in_c_and_xnb_in_c(x, b, c, r);
+        assert evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
+      } else {
+        if_xb_nin_c_and_xnb_nin_c(x, b, r, c);
+        assert evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
+      }
+      assert evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
+    }
+  }
+  assert forall c :: c in q ==> evaluate_clause(c, r[x:=b]) == evaluate(update_clause(x, b, c), r);
+  assert (forall c :: c in q ==> evaluate_clause(c, r[x:=b])) == (forall c :: c in q ==> evaluate(update_clause(x, b, c), r));
+}
+
+// A simple SAT solver. Given a query, it does a three-way case split. If
+// the query has no clauses then it is trivially satisfiable (with the
+// empty valuation). If the first clause in the query is empty, then the
+// query is unsatisfiable. Otherwise, it considers the first symbol that 
+// appears in the query, and makes two recursive solving attempts: one 
+// with that symbol evaluated to true, and one with it evaluated to false.
+// If neither recursive attempt succeeds, the query is unsatisfiable.
 method simp_solve (q:query) returns (sat:bool, r:valuation)
   ensures sat==true ==> evaluate(q,r)
   ensures sat==false ==> forall r :: !evaluate(q,r)
