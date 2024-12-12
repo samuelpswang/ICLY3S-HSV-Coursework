@@ -372,6 +372,7 @@ text \<open> A simple SAT solver. Given a query, it does a three-way case split.
    with that symbol evaluated to true, and one with it evaluated to false.
    If neither recursive attempt succeeds, the query is deemed unsatisfiable. \<close>
 
+(* simp_solve termination helpers *)
 
 lemma inclusion_implies_cardinality:
   "(s1::symbol set) < (s2::symbol set) \<and> (finite s1) \<and> (finite s2) \<longrightarrow> card s1 < card s2"
@@ -412,10 +413,7 @@ lemma cla_x_not_in_update_xb_symbols_true: "(x::symbol) \<notin> symbols (update
 
 lemma cla_x_not_in_update_xb_symbols_false: "(x::symbol) \<notin> symbols (update_clause x False c)"
   by (simp add: member_def symbols_def update_clause_def cla_xb_not_in_and_xnb_not_in_implies_not_in_symbols)
-(*
-lemma w0: "symbols q = \<Union>(set (map symbols_clause q))"
-  using symbols_def by blast
-*)
+
 lemma cla_xt_or_xf_in_implies_x_in_symbols: "(List.member c (x,True)) \<or> (List.member c (x,False)) \<longrightarrow> x\<in> symbols_clause c"
   by (metis image_eqI list.set_map member_def symbol_of_literal.simps symbols_clause_def)
 
@@ -534,7 +532,6 @@ proof
   hence "y \<in> symbols (update_clause x False c) \<longrightarrow> y \<in> symbols_clause c" using calculation by auto
   then show "y \<in> symbols (update_clause x False c) \<Longrightarrow> y \<in> symbols_clause c" by blast
 qed
-  
 
 lemma qry_x_in_update_xt_symbols_implies_x_in: "y \<in> symbols (update_query x True q) \<longrightarrow> y \<in> symbols q"
 proof (induct q)
@@ -566,17 +563,11 @@ next
   then show ?case by blast
 qed
 
-(*
-lemma y7: "x \<in> symbols q \<longrightarrow> x\<notin>symbols (update_query x True q)"
-  by (simp add: qry_x_not_in_update_xt_symbols)
-*)
-
 lemma qry_x_in_implies_update_xt_less: "(x::symbol)\<in>(symbols (q::query)) \<longrightarrow> symbols (update_query x True q) < symbols q"
   by (metis psubsetI subsetI qry_x_in_update_xt_symbols_implies_x_in qry_x_not_in_update_xt_symbols)
 
 lemma qry_x_in_implies_update_xf_less: "(x::symbol)\<in>(symbols (q::query)) \<longrightarrow> symbols (update_query x False q) < symbols q"
   by (meson symbols_less_than_interpret qry_x_in_update_xf_symbols_implies_x_in qry_x_not_in_update_xf_symbols)
-
 
 lemma qry_x_in_implies_measure_update_xt_less: "(x::symbol)\<in>(symbols (q::query)) \<longrightarrow> ((simp_solve_measure (update_query x True q)) < (simp_solve_measure q))"
   by (simp add: psubset_card_mono simp_solve_measure_def qry_x_in_implies_update_xt_less symbols_query_output_is_finite)
@@ -764,6 +755,7 @@ next
   then show ?case using evaluate_def local.Cons by auto
 qed
 
+(* simp_solve_sat_correct helpers *)
 
 lemma qry_x_in_val_imples_x_in_qry: "simp_solve q = Some \<rho> \<Longrightarrow> \<forall>x. x \<in> domain \<rho> \<longrightarrow> x \<in> symbols q"
 proof (induct q arbitrary:\<rho> rule:simp_solve.induct)
@@ -878,6 +870,8 @@ text \<open> A valuation is deemed well-formed (wf) as long as it does
   not assign a truth-value for the same symbol more than once. \<close>
 definition wf_valuation where
   "wf_valuation \<rho> = distinct (map fst \<rho>)"
+
+(* simp_solve_unsat_correct helpers *)
 
 lemma val_x_in_domain_implies_xb_or_xnb_in_val: "\<forall>\<rho>. (wf_valuation \<rho>) \<and> (x \<in> domain \<rho>) \<longrightarrow> (List.member \<rho> (x,True)) \<or> (List.member \<rho> (x,False))"
   by (smt (verit, best) domain_def eq_fst_iff imageE list.set_map member_def)

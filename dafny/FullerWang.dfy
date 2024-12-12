@@ -55,12 +55,9 @@ method rev(xs:seq<symbol>) returns (ys:seq<symbol>)
   ensures |xs| == |ys|
   ensures forall i :: (0 <= i < |ys| ==> ys[i] == xs[|xs|-1-i])
 {
-  if (xs == [])
-  {
+  if (xs == []) {
     ys := [];
-  }
-  else 
-  {
+  } else {
     ys := rev(xs[1..]);
     ys := ys + [xs[0]];
   }
@@ -145,8 +142,7 @@ function symbol_seq_clause(c:clause) : seq<symbol>
 // Part (b): extract the sequence of symbols that appear in a query
 lemma remove_symbols_func_may_decrease_size(q:query, xs:set<symbol>)
   ensures |remove_symbols(q, xs)| <= |q|
-{
-}
+{}
 
 lemma mutually_exclusive_is_dupe_free_concat_able(seq1: seq<symbol>, seq2:seq<symbol>)
   requires forall x :: x in seq1 ==> !(x in seq2)
